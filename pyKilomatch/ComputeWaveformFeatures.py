@@ -5,11 +5,14 @@ import os
 from .utils import waveformEstimation
 
 def computeWaveformFeatures(user_settings):
+    data_folder = user_settings["path_to_data"]
     output_folder = user_settings["output_folder"]
-    waveform_all = np.load(os.path.join(output_folder, 'waveform_all.npy'))
-    channel_locations = np.load(os.path.join(output_folder, 'channel_locations.npy'))
+
+    waveform_all = np.load(os.path.join(data_folder , 'waveform_all.npy'))
+    channel_locations = np.load(os.path.join(data_folder, 'channel_locations.npy'))
+    sessions = np.load(os.path.join(data_folder , 'session_index.npy'))
+
     locations = np.load(os.path.join(output_folder, 'locations.npy'))
-    sessions = np.load(os.path.join(output_folder, 'session_index.npy'))
     positions = np.load(os.path.join(output_folder,'motion.npy'))
 
     n_nearest_channels = user_settings['waveformCorrection']['n_channels_precomputed']

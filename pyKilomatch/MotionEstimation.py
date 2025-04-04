@@ -1,3 +1,4 @@
+from tarfile import data_filter
 import numpy as np
 import hdbscan
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
@@ -9,14 +10,18 @@ import matplotlib.pyplot as plt
 
 def motionEstimation(user_settings):
     # Get all features
+    data_folder = user_settings["path_to_data"]
     output_folder = user_settings["output_folder"]
+    
+    waveform_all = np.load(os.path.join(data_folder , 'waveform_all.npy'))
+    channel_locations = np.load(os.path.join(data_folder, 'channel_locations.npy'))
+    sessions = np.load(os.path.join(data_folder , 'session_index.npy'))
+    
     isi = np.load(os.path.join(output_folder, 'isi.npy'))
     auto_corr = np.load(os.path.join(output_folder, 'auto_corr.npy'))
     peth = np.load(os.path.join(output_folder, 'peth.npy'))
-    waveform_all = np.load(os.path.join(output_folder, 'waveform_all.npy'))
-    channel_locations = np.load(os.path.join(output_folder, 'channel_locations.npy'))
     locations = np.load(os.path.join(output_folder, 'locations.npy'))
-    sessions = np.load(os.path.join(output_folder, 'session_index.npy'))
+    
 
     # Get waveform features
     n_nearest_channels = user_settings['waveformCorrection']['n_channels_precomputed']
@@ -24,7 +29,6 @@ def motionEstimation(user_settings):
     n_channel = np.size(waveform_all, 1)
     n_sample = np.size(waveform_all, 2)
 
-    # %%
     waveforms = np.zeros((n_unit, n_nearest_channels, n_sample))
     waveform_channels = np.zeros((n_unit, n_nearest_channels))
 

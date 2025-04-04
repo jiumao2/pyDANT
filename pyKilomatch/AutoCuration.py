@@ -5,13 +5,14 @@ from .utils import graphEditNumber
 
 def autoCuration(user_settings):
     # Load precomputed features
+    data_folder = user_settings["path_to_data"]
     output_folder = user_settings["output_folder"]
-    sessions = np.load(os.path.join(output_folder, 'session_index.npy'))
 
-    clustering_result = np.load(os.path.join(user_settings['output_folder'], 'ClusteringResults.npz'))
+    sessions = np.load(os.path.join(data_folder , 'session_index.npy'))
+
+    clustering_result = np.load(os.path.join(output_folder, 'ClusteringResults.npz'))
     idx_cluster_hdbscan = clustering_result['idx_cluster_hdbscan']
     good_matches_matrix = clustering_result['good_matches_matrix']
-    thres = clustering_result['thres']
     hdbscan_matrix = clustering_result['hdbscan_matrix']
     similarity_matrix = clustering_result['similarity_matrix']
     leafOrder = clustering_result['leafOrder']
@@ -260,6 +261,10 @@ def autoCuration(user_settings):
                 leafOrder=leafOrder)
 
     # Save final output
+    np.save(os.path.join(output_folder, 'ClusterMatrix.npy'), hdbscan_matrix_curated)
+    np.save(os.path.join(output_folder, 'IdxCluster.npy'), idx_cluster_hdbscan_curated)
+    np.save(os.path.join(output_folder, 'MatchedPairs.npy'), matched_pairs_curated)
+
     Output = {
         'NumClusters': np.max(idx_cluster_hdbscan_curated),
         'NumUnits': len(idx_cluster_hdbscan_curated),

@@ -1,71 +1,55 @@
 {
-    "path_to_data": "D:\\Dropbox\\HY_Work\\Manuscript\\Kilomatch\\Data\\New\\Michael\\kilomatchOutput\\spikeInfo.mat", 
-    "output_folder": "C:\\Users\\jiumao\\Desktop\\Kilomatch_python\\kilomatchOutputMichael", 
-    "save_intermediate_results": false, 
-    "save_figures": false, 
-    "plot_clusters": false, 
-    "n_jobs": -1,
+    // please change the following paths to your own paths
+    "path_to_data": "path\\to\\data", // path to data
+    "output_folder": ".\\kilomatchOutput", // output folder
+    "save_intermediate_results": true, // whether to save the intermediate results 
+    "save_figures": true, // whether to save the figures 
+    "plot_clusters": true, // whether to plot each cluster 
+    "n_jobs": -1, // number of jobs to run in parallel. -1 means using all processors
 
+    // parameters for estimating the location of each unit
     "spikeLocation":{
-        "location_algorithm": "monopolar_triangulation", 
-        "n_nearest_channels": 20 
+        "location_algorithm": "monopolar_triangulation", // "monopolar_triangulation" or "center_of_mass" 
+        "n_nearest_channels": 20 // number of channels used for spike location estimation 
     },
     
+    // parameters for waveform correction
     "waveformCorrection":{
         "interpolate_algorithm": "Krig", 
-        "n_nearest_channels": 36, 
-        "n_channels_precomputed": 100 
+        "n_nearest_channels": 36, // number of channels used for similarity calculation 
+        "n_channels_precomputed": 100 // precomputed the corrected waveforms for acceleration 
     },
 
+    // autocorrelogram similarity related parameters
     "autoCorr":{
-        "window": 300, 
-        "gaussian_sigma": 5 
+        "window": 300, // ms 
+        "gaussian_sigma": 5 // ms, for smoothing the autocorrelogram
     },
 
+    // ISI similarity related parameters
     "ISI":{
-        "window": 100, 
-        "binwidth": 1, 
-        "gaussian_sigma": 1 
+        "window": 100, // ms 
+        "binwidth": 1, // ms 
+        "gaussian_sigma": 1 // ms, for smoothing the ISI histogram 
     },
 
+    // parameters for motion estimation
     "motionEstimation":{
-        "max_motion_distance": 100, 
-        "features": ["Waveform", "AutoCorr", "PETH"], 
-        "interpolate_algorithm": "Raw", 
-        "n_iter": 10 
+        "max_motion_distance": 100, // um. Unit pairs with distance larger than this value in Y direction will not be included for motion estimation 
+        "features": ["Waveform", "AutoCorr", "PETH"], // features used for motion estimation. Choose from "Waveform", "AutoCorr", "ISI", "PETH" 
+        "n_iter": 10 // number of iterations for the clustering algorithm
     },
 
+    // parameters for clustering
     "clustering":{
-        "max_distance": 100, 
-        "features": ["Waveform", "AutoCorr", "PETH"], 
-        "n_iter": 10 
+        "max_distance": 100, // um. Unit pairs with distance larger than this value in Y direction will be considered as different clusters 
+        "features": ["Waveform", "AutoCorr", "PETH"], // features used for motion estimation. Choose from "Waveform", "AutoCorr", "ISI", "PETH" 
+        "n_iter": 10 // number of iterations for the clustering algorithm 
     },
 
     "autoCuration":{
-        "reject_threshold": 0.1, 
-        "auto_split": true, 
-        "auto_merge": true 
+        "reject_threshold": 0.1, // atanh() transform of the correlation coefficient. Good clusters should have all pair-wise similarity larger than this threshold 
+        "auto_split": true, // whether to split the clusters automatically 
+        "auto_merge": true // whether to merge the clusters automatically 
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

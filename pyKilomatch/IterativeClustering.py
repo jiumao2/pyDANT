@@ -8,9 +8,12 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from scipy.spatial.distance import squareform
 
 def iterativeClustering(user_settings):
-
     # Load precomputed features
+    data_folder = user_settings["path_to_data"]
     output_folder = user_settings["output_folder"]
+
+    sessions = np.load(os.path.join(data_folder , 'session_index.npy'))
+
     isi = np.load(os.path.join(output_folder, 'isi.npy'))
     auto_corr = np.load(os.path.join(output_folder, 'auto_corr.npy'))
     peth = np.load(os.path.join(output_folder, 'peth.npy'))
@@ -18,9 +21,9 @@ def iterativeClustering(user_settings):
     waveforms_corrected = np.load(os.path.join(output_folder, 'waveforms_corrected.npy'))
     waveform_channels = np.load(os.path.join(output_folder, 'waveform_channels.npy'))
     locations = np.load(os.path.join(output_folder, 'locations.npy'))
-    sessions = np.load(os.path.join(output_folder, 'session_index.npy'))
     positions = np.load(os.path.join(output_folder, 'Motion.npy'))
-    # %% Recompute the similarities
+
+    # Recompute the similarities
     max_distance = user_settings['clustering']['max_distance']
     n_unit = waveforms_corrected.shape[0]
 
@@ -182,6 +185,10 @@ def iterativeClustering(user_settings):
     np.fill_diagonal(good_matches_matrix, True)
 
     # Save the results
+    np.save(os.path.join(output_folder, 'SimilarityMatrix.npy'), similarity_matrix)
+    np.save(os.path.join(output_folder, 'SimilarityWeights.npy'), weights)
+    np.save(os.path.join(output_folder, 'SimilarityThreshold.npy'), thres)
+
     np.savez(os.path.join(user_settings['output_folder'], 'ClusteringResults.npz'),
         weights=weights, 
         similarity_all=similarity_all,
