@@ -1,0 +1,71 @@
+{
+    "path_to_data": "D:\\Dropbox\\HY_Work\\Manuscript\\Kilomatch\\Data\\New\\Michael\\kilomatchOutput\\spikeInfo.mat", 
+    "output_folder": "C:\\Users\\jiumao\\Desktop\\Kilomatch_python\\kilomatchOutputMichael", 
+    "save_intermediate_results": false, 
+    "save_figures": false, 
+    "plot_clusters": false, 
+    "n_jobs": -1,
+
+    "spikeLocation":{
+        "location_algorithm": "monopolar_triangulation", 
+        "n_nearest_channels": 20 
+    },
+    
+    "waveformCorrection":{
+        "interpolate_algorithm": "Krig", 
+        "n_nearest_channels": 36, 
+        "n_channels_precomputed": 100 
+    },
+
+    "autoCorr":{
+        "window": 300, 
+        "gaussian_sigma": 5 
+    },
+
+    "ISI":{
+        "window": 100, 
+        "binwidth": 1, 
+        "gaussian_sigma": 1 
+    },
+
+    "motionEstimation":{
+        "max_motion_distance": 100, 
+        "features": ["Waveform", "AutoCorr", "PETH"], 
+        "interpolate_algorithm": "Raw", 
+        "n_iter": 10 
+    },
+
+    "clustering":{
+        "max_distance": 100, 
+        "features": ["Waveform", "AutoCorr", "PETH"], 
+        "n_iter": 10 
+    },
+
+    "autoCuration":{
+        "reject_threshold": 0.1, 
+        "auto_split": true, 
+        "auto_merge": true 
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
