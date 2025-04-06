@@ -5,7 +5,7 @@ with open('README.md', 'r', encoding='utf-8') as f:
 
 setup(
     name='pyKilomatch',
-    version='0.0.1',
+    version='0.0.3',
     packages=find_packages(),
     discription='A Python package for tracking neurons across days',
     long_description=long_description,
