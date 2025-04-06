@@ -6,6 +6,8 @@ from joblib import Parallel, delayed
 import os
 from tqdm import tqdm
 from .utils import computeSimilarity, waveformSimilarity
+import matplotlib
+matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
 import matplotlib.pyplot as plt
 
 def motionEstimation(user_settings):

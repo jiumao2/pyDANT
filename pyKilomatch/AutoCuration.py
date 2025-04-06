@@ -2,6 +2,8 @@ import numpy as np
 import os
 from scipy.sparse.csgraph import connected_components
 from .utils import graphEditNumber
+import matplotlib
+matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
 import matplotlib.pyplot as plt
 
 def autoCuration(user_settings):

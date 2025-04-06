@@ -5,6 +5,8 @@ from scipy.ndimage import gaussian_filter1d
 from joblib import Parallel, delayed
 from tqdm import tqdm
 from .utils import spikeLocation
+import matplotlib
+matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
 import matplotlib.pyplot as plt
 
 def preprocess(user_settings):

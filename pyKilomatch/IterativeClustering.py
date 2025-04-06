@@ -7,6 +7,8 @@ import hdbscan
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import optimal_leaf_ordering, leaves_list
+import matplotlib
+matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
 import matplotlib.pyplot as plt
 
 def iterativeClustering(user_settings):
