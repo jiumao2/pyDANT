@@ -5,6 +5,7 @@ from scipy.ndimage import gaussian_filter1d
 from joblib import Parallel, delayed
 from tqdm import tqdm
 from .utils import spikeLocation
+import matplotlib.pyplot as plt
 
 def preprocess(user_settings):
     # load the data
@@ -111,6 +112,35 @@ def preprocess(user_settings):
     np.save(os.path.join(output_folder, 'isi.npy'), isi)
     np.save(os.path.join(output_folder, 'peth.npy'), peth)
     print('Done!')
+
+    # plot the data
+    plt.figure(figsize=(10, 5))
+    
+    # plot the number of units in each session
+    plt.subplot(121)
+    n_unit_session = [np.sum(sessions==k) for k in range(1, n_session+1)]
+    plt.plot(range(1, n_session+1), n_unit_session, 'k.-')
+    plt.xlabel('Sessions')
+    plt.ylabel('Number of units')
+    plt.xlim([0.5, n_session+0.5])
+
+    # plot the locations of the units in each session
+    plt.subplot(122)
+    x_plot = []
+    y_plot = []
+    x_scale = 0.8
+    for k in range(n_unit):
+        x_plot.append(sessions[k] + 1 + (np.random.rand()-0.5)*x_scale)
+        y_plot.append(locations[k,1])
+    
+    plt.plot(x_plot, y_plot, '.', markersize=1, color='k', alpha=0.5)
+    plt.xlabel('Sessions')
+    plt.ylabel('Y location (μm)')
+    plt.title('Unit locations')
+    plt.xlim([0.5, n_session+0.5])
+
+    plt.savefig(os.path.join(figures_folder, 'unitLocations.png'), dpi=300)
+    plt.close()
 
 
 def preprocessSpikeInfo(user_settings):

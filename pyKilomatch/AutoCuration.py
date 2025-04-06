@@ -2,6 +2,7 @@ import numpy as np
 import os
 from scipy.sparse.csgraph import connected_components
 from .utils import graphEditNumber
+import matplotlib.pyplot as plt
 
 def autoCuration(user_settings):
     # Load precomputed features
@@ -282,3 +283,124 @@ def autoCuration(user_settings):
     np.savez(os.path.join(output_folder, 'Output.npz'), Output)
     print(f'Kilomatch done! Output saved to {os.path.join(output_folder, "Output.npz")}')
     print(f'Found {Output["NumClusters"]} clusters and {len(Output["MatchedPairs"])} matches from {Output["NumUnits"]} units during {Output["NumSession"]} sessions!')
+
+
+    # Plot the results
+
+    # probability of matching between sessions
+    n_session = np.max(sessions)
+    n_cluster = np.max(idx_cluster_hdbscan)
+    n_matched_matrix = np.zeros((n_session, n_session))
+
+    n_units_each_session = np.array(
+        [np.sum(sessions == i) for i in range(1, n_session+1)]
+    )
+
+    for k in range(1, n_cluster+1):
+        units = np.where(idx_cluster_hdbscan == k)[0]
+        for j in range(len(units)):
+            for i in range(j+1, len(units)):
+                n_matched_matrix[sessions[units[j]]-1, sessions[units[i]]-1] += 1
+                n_matched_matrix[sessions[units[i]]-1, sessions[units[j]]-1] += 1
+
+    d_session = np.arange(-n_session+1, n_session)
+    p_matched = [[] for _ in range(len(d_session))]
+    p_matched_matrix = np.zeros((n_session, n_session))
+    for k in range(1, n_session+1):
+        for j in range(k+1, n_session+1):   
+            p_matched_matrix[k-1,j-1] = n_matched_matrix[k-1,j-1]/n_units_each_session[k-1]
+            p_matched_matrix[j-1,k-1] = n_matched_matrix[k-1,j-1]/n_units_each_session[j-1]
+            
+            idx_this = np.where(d_session == j-k)[0]
+            assert len(idx_this) == 1, f"Error: {j-k} not in d_session"
+            p_matched[idx_this[0]].append(n_matched_matrix[k-1,j-1]/n_units_each_session[j-1])
+
+            idx_this = np.where(d_session == k-j)[0]
+            assert len(idx_this) == 1, f"Error: {j-k} not in d_session"
+            p_matched[idx_this[0]].append(n_matched_matrix[k-1,j-1]/n_units_each_session[k-1])
+
+    p_matches_mean = np.array([np.mean(p_matched[k]) for k in range(len(d_session))])
+    p_matches_std = np.array([np.std(p_matched[k]) for k in range(len(d_session))])
+
+    p_matches_mean[d_session == 0] = np.nan
+    p_matches_std[d_session == 0] = np.nan
+
+    plt.figure(figsize=(12, 5))
+
+    plt.subplot(121)
+    plt.imshow(p_matched_matrix, cmap='plasma')
+    plt.gca().invert_yaxis()
+    plt.colorbar(label='Prob. of matched')
+    plt.xlabel('Sessions')
+    plt.ylabel('Sessions')
+
+    plt.subplot(122)
+    plt.plot(d_session, p_matches_mean, 'k.-')
+    plt.xlabel('Δ session')
+    plt.ylabel('Prob. of matched')
+
+    plt.savefig(os.path.join(output_folder, 'Figures/MatchedProbability.png'), dpi=300)
+    plt.close()
+
+    # Plot the similarity distribution and the weights of each feature
+    similarity_all = clustering_result['similarity_all']
+    idx_unit_pairs = clustering_result['idx_unit_pairs']
+    weights = clustering_result['weights']
+    similarity_names = user_settings['clustering']['features']
+
+    n_pairs = similarity_all.shape[0]
+    n_features = similarity_all.shape[1]
+
+    mean_similarity = similarity_all @ weights
+    is_matched = np.array([hdbscan_matrix_curated[idx_unit_pairs[k,0], idx_unit_pairs[k,1]] for k in range(n_pairs)])
+
+    n_plots = n_features+1
+    plt.figure(figsize=(4*n_plots + 1, 4))
+
+    plt.subplot(1, n_plots, 1)
+    plt.hist(mean_similarity[~is_matched], bins=50, color='k', density=True)
+    plt.hist(mean_similarity[is_matched], bins=50, color='b', density=True)
+    plt.xlabel('Mean similarity')
+    plt.ylabel('Density')
+    plt.title('Weighted summation')
+
+    for k in range(n_features):
+        plt.subplot(1, n_plots, k+2)
+        plt.hist(similarity_all[~is_matched,k], bins=50, color='k', density=True)
+        plt.hist(similarity_all[is_matched,k], bins=50, color='b', density=True)
+        plt.xlabel(similarity_names[k])
+        plt.title('weight = ' + f'{weights[k]:.2f}')
+
+    plt.savefig(os.path.join(output_folder, 'Figures/SimilarityDistribution.png'), dpi=300)
+    plt.close()
+
+    # Plot the scatters between any two features
+    n_points_max = 5000
+    idx_matched_rnd = np.where(is_matched)[0]
+    idx_unmatched_rnd = np.where(~is_matched)[0]
+
+    if np.sum(is_matched) > n_points_max:
+        idx_matched_rnd = np.random.choice(np.where(is_matched)[0], n_points_max, replace=False)
+
+    if np.sum(~is_matched) > n_points_max:
+        idx_unmatched_rnd = np.random.choice(np.where(~is_matched)[0], n_points_max, replace=False)
+    
+    n_plots = n_features*(n_features-1)//2
+
+    plt.figure(figsize=(4*n_plots + 1, 4))
+    count = 0
+    for k in range(n_features):
+        for j in range(k+1, n_features):
+            count += 1
+            plt.subplot(1, n_plots, count)
+            plt.plot(similarity_all[idx_unmatched_rnd,k], similarity_all[idx_unmatched_rnd,j], 'k.', markersize=1, alpha=0.3)
+            plt.plot(similarity_all[idx_matched_rnd,k], similarity_all[idx_matched_rnd,j], 'b.', markersize=1, alpha=0.3)
+            
+            plt.xlabel(similarity_names[k])
+            plt.ylabel(similarity_names[j])
+
+    plt.savefig(os.path.join(output_folder, 'Figures/FeatureScatter.png'), dpi=300)
+    plt.close()
+
+
+

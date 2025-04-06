@@ -47,7 +47,7 @@ def motionEstimation(user_settings):
         waveform_channels[k,:] = out[k]
         waveforms[k,:,:] = waveform_all[k,out[k],:]
 
-    # %% Estimating the motion of the electrode
+    # Estimating the motion of the electrode
     print('---------------Motion Estimation---------------')
     max_distance = user_settings['motionEstimation']['max_motion_distance']
 
@@ -121,7 +121,7 @@ def motionEstimation(user_settings):
         similarity_matrix[idx_unit_pairs[k,1], idx_unit_pairs[k,0]] = mean_similarity[k]
     np.fill_diagonal(similarity_matrix, 5)
 
-    # %% Iterative clustering
+    # Iterative clustering
     for iter in range(user_settings['motionEstimation']['n_iter']):
         print(f'Iteration {iter+1} starts!')
         
@@ -185,7 +185,18 @@ def motionEstimation(user_settings):
 
     print(f'{n_pairs_included} pairs of units are included for drift estimation!')
 
-    # %% Compute drift
+    # plot the similarity with threshold
+    plt.figure(figsize=(5, 5))
+    plt.hist(similarity, bins=100)
+    plt.axvline(similarity_thres, color='red', linestyle=':', label='Threshold')
+    plt.xlabel('Similarity')
+    plt.ylabel('Counts')
+    plt.title(str(n_pairs_included) + ' pairs are included!')
+
+    plt.savefig(os.path.join(user_settings['output_folder'], 'Figures/SimilarityThresholdForCorrection.png'), dpi=300)
+    plt.close()
+
+    # Compute drift
     # nblock = user_settings['motionEstimation']['n_block']
     nblock = 1
     session_pairs = np.column_stack((
@@ -282,6 +293,17 @@ def motionEstimation(user_settings):
                     positions[k,:] = np.mean(positions[[idx1, idx_sort[j]], :], axis=0)
                 else:
                     positions[k,:] = positions[idx1, :]
+
+    # plot the motion
+    plt.figure(figsize=(5, 5))
+    plt.plot(np.arange(n_session)+1, positions[0,:], 'k-')
+    plt.fill_between(np.arange(n_session)+1, positions_ci95[0,0,:], positions_ci95[1,0,:], color='gray', alpha=0.5)
+    plt.xlabel('Sessions')
+    plt.ylabel('Motion (μm)')
+    plt.xlim([0.5, n_session+0.5])
+    
+    plt.savefig(os.path.join(user_settings['output_folder'], 'Figures/Motion.png'), dpi=300)
+    plt.close()
 
     # Save data
     np.save(os.path.join(user_settings['output_folder'], 'motion.npy'), positions)

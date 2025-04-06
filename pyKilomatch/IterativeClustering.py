@@ -6,6 +6,8 @@ from .utils import computeSimilarity, waveformSimilarity
 import hdbscan
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from scipy.spatial.distance import squareform
+from scipy.cluster.hierarchy import optimal_leaf_ordering, leaves_list
+import matplotlib.pyplot as plt
 
 def iterativeClustering(user_settings):
     # Load precomputed features
@@ -44,7 +46,7 @@ def iterativeClustering(user_settings):
     # Clear temp variables
     del corrected_locations, y_distance_matrix, idx_row, idx_col, idx_good
 
-    # %% Initialize similarity arrays
+    # Initialize similarity arrays
     similarity_waveform = np.zeros(n_pairs)
     similarity_raw_waveform = np.zeros(n_pairs)
     if 'Waveform' in user_settings['clustering']['features']:
@@ -169,7 +171,6 @@ def iterativeClustering(user_settings):
             np.fill_diagonal(similarity_matrix, 5)
 
     Z = clusterer.single_linkage_tree_.to_numpy()
-    from scipy.cluster.hierarchy import optimal_leaf_ordering, leaves_list
     Z_ordered = optimal_leaf_ordering(Z, squareform(distance_matrix))
     leafOrder = leaves_list(Z_ordered)
 
@@ -184,6 +185,18 @@ def iterativeClustering(user_settings):
         good_matches_matrix[idx_unit_pairs[k, 1], idx_unit_pairs[k, 0]] = True
     np.fill_diagonal(good_matches_matrix, True)
 
+    # plot the distribution of similarity
+    n_plots = len(similarity_names)
+    fig, axes = plt.subplots(1, n_plots, figsize=(5*n_plots, 5))
+    for k in range(n_plots):
+        axes[k].hist(similarity_all[:, k], bins=50, color='blue', density=True)
+        axes[k].set_title(similarity_names[k])
+        axes[k].set_xlabel(similarity_names[k] + ' Similarity')
+        axes[k].set_ylabel('Density')
+
+    plt.savefig(os.path.join(output_folder, 'Figures/AllSimilarity.png'))
+    plt.close()
+
     # Save the results
     np.save(os.path.join(output_folder, 'SimilarityMatrix.npy'), similarity_matrix)
     np.save(os.path.join(output_folder, 'SimilarityWeights.npy'), weights)
@@ -191,7 +204,7 @@ def iterativeClustering(user_settings):
 
     np.savez(os.path.join(user_settings['output_folder'], 'ClusteringResults.npz'),
         weights=weights, 
-        similarity_all=similarity_all,
+        similarity_all=similarity_all, idx_unit_pairs=idx_unit_pairs,
         thres=thres, good_matches_matrix=good_matches_matrix,
         similarity_matrix=similarity_matrix, distance_matrix=distance_matrix,
         leafOrder=leafOrder,

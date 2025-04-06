@@ -3,8 +3,6 @@
     "path_to_data": "path\\to\\data", // path to data
     "output_folder": ".\\kilomatchOutput", // output folder
     "save_intermediate_results": true, // whether to save the intermediate results 
-    "save_figures": true, // whether to save the figures 
-    "plot_clusters": true, // whether to plot each cluster 
     "n_jobs": -1, // number of jobs to run in parallel. -1 means using all processors
 
     // parameters for estimating the location of each unit
