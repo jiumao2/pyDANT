@@ -15,8 +15,8 @@ def computeWaveformFeatures(user_settings):
     locations = np.load(os.path.join(output_folder, 'locations.npy'))
     positions = np.load(os.path.join(output_folder,'motion.npy'))
 
-    n_nearest_channels = user_settings['waveformCorrection']['n_channels_precomputed']
     n_sample = waveform_all.shape[2]
+    n_channel = waveform_all.shape[1]
     n_unit = waveform_all.shape[0]
 
     chanMap = {
@@ -24,42 +24,30 @@ def computeWaveformFeatures(user_settings):
         'ycoords': channel_locations[:, 1],
     }
 
-    def process_spike(locations_this, dy, channel_locations, n_nearest_channels, waveform_this, chanMap):
+    def process_spike(locations_this, dy, channel_locations, waveform_this, chanMap):
         location_new = locations_this.copy()
         location_new[1] -= dy
 
-        distances = np.sqrt(np.sum((channel_locations - location_new[:2])**2, axis=1))
-        idx_sort = np.argsort(distances)
-        idx_included = idx_sort[:n_nearest_channels]
-
-        waveforms = np.zeros((n_nearest_channels, n_sample))
-        waveforms_corrected = np.zeros((n_nearest_channels, n_sample))
-        for j in range(n_nearest_channels):
-            x = channel_locations[idx_included[j], 0]
-            y = channel_locations[idx_included[j], 1]
+        waveforms_corrected = np.zeros((n_channel, n_sample))
+        for j in range(n_channel):
+            x = channel_locations[j, 0]
+            y = channel_locations[j, 1]
             
-            waveforms[j,:] = waveform_this[idx_included[j],:]
             waveforms_corrected[j,:] = waveformEstimation(
                 waveform_this, locations_this, chanMap, location_new, x, y)
         
-        return (idx_included, waveforms_corrected, waveforms)
+        return waveforms_corrected
 
-    #%% Run parallel processing with progress bar
+    # Run parallel processing with progress bar
     out = Parallel(n_jobs=user_settings["n_jobs"])(
-        delayed(process_spike)(locations[k,:2], positions[0, sessions[k]-1], channel_locations, n_nearest_channels, waveform_all[k,:,:], chanMap) 
+        delayed(process_spike)(locations[k,:2], positions[0, sessions[k]-1], channel_locations, waveform_all[k,:,:], chanMap) 
         for k in tqdm(range(n_unit), desc='Computing waveform features')
     )
 
-    waveforms = np.zeros((n_unit, n_nearest_channels, n_sample))
-    waveforms_corrected = np.zeros((n_unit, n_nearest_channels, n_sample))
-    waveform_channels = np.zeros((n_unit, n_nearest_channels), dtype=int)
+    waveforms_corrected = np.zeros((n_unit, n_channel, n_sample))
     for k in range(n_unit):
-        waveforms[k, :, :] = out[k][2]
-        waveforms_corrected[k, :, :] = out[k][1]
-        waveform_channels[k, :] = out[k][0]
+        waveforms_corrected[k, :, :] = out[k]
 
     # Save the corrected waveforms
     output_folder = user_settings['output_folder']
-    np.save(os.path.join(output_folder, 'waveforms.npy'), waveforms)
     np.save(os.path.join(output_folder, 'waveforms_corrected.npy'), waveforms_corrected)
-    np.save(os.path.join(output_folder, 'waveform_channels.npy'), waveform_channels)

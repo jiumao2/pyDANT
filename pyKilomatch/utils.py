@@ -1,4 +1,6 @@
 import numpy as np
+from scipy.optimize import least_squares
+from scipy.sparse import csgraph
 
 def computeKernel2D(xp, yp, sig=None):
     if sig is None:
@@ -16,12 +18,7 @@ def computeKernel2D(xp, yp, sig=None):
     K = np.exp(-(distx / sigx)**p - (disty / sigy)**p)
     return K
 
-def findNearestPoints(points, queryPoints):
-    pass
-
 def graphEditNumber(matA, matB):
-    from scipy.sparse import csgraph
-    
     # Convert to sparse matrices and find connected components
     comp_A = csgraph.connected_components(matA, directed=False)[1]
     comp_B = csgraph.connected_components(matB, directed=False)[1]
@@ -34,7 +31,13 @@ def graphEditNumber(matA, matB):
     return (nSame, nA, nB)
 
 def spikeLocation(waveforms_mean, chanMap, n_nearest_channels=None, algorithm=None):
-    from scipy.optimize import least_squares
+    '''
+    Spike location estimation using either center_of_mass or monopolar_triangulation
+    
+    monopolar_triangulation: refer to Boussard, Julien, Erdem Varol, Hyun Dong Lee, Nishchal Dethe, and Liam Paninski. “Three-Dimensional Spike Localization and Improved Motion Correction for Neuropixels Recordings.” In Advances in Neural Information Processing Systems, 34:22095–105. Curran Associates, Inc., 2021. https://proceedings.neurips.cc/paper/2021/hash/b950ea26ca12daae142bd74dba4427c8-Abstract.html.
+    > https://spikeinterface.readthedocs.io/en/stable/modules/postprocessing.html#spike-locations
+    > https://github.com/SpikeInterface/spikeinterface/blob/main/src/spikeinterface/postprocessing/localization_tools.py#L334
+    '''
     
     if n_nearest_channels is None:
         n_nearest_channels = 20
@@ -75,8 +78,8 @@ def spikeLocation(waveforms_mean, chanMap, n_nearest_channels=None, algorithm=No
 
     x0 = [loc_center_to_mass[0], loc_center_to_mass[1], 1, ptt_max]
     bounds = (
-        [x0[0] - 1000, x0[1] - 1000, 1, 0],
-        [x0[0] + 1000, x0[1] + 1000, 1000 * 10, 1000*ptt_max],
+        [x0[0] - 100, x0[1] - 100, 1, 0],
+        [x0[0] + 100, x0[1] + 100, 100 * 10, 1000*ptt_max],
     )
 
     output = least_squares(fun, x0=x0, bounds=bounds, args=(ptt_this, loc_this))
@@ -90,7 +93,7 @@ def waveformEstimation(waveform_mean, location, chanMap, location_new, x, y):
     # Calculate mapped location
     location_mapped_to_old = np.array([x, y]) - (np.array(location_new) - np.array(location))
     
-    n_channels = 36
+    n_channels = 32
     distance_to_location = np.sum((channel_locations - np.array([x, y]))**2, axis=1)
     
     idx_sorted = np.argsort(distance_to_location)
@@ -112,60 +115,4 @@ def waveformEstimation(waveform_mean, location, chanMap, location_new, x, y):
     waveform_out = np.sum(waveform_mean[idx_included, :] * M.T, axis=0)
     
     return waveform_out
-
-
-
-def waveformSimilarity(waveforms, waveform_channels, n_channels=None):
-    if n_channels is None:
-        n_channels = 36
-
-    # similarityAB
-    channels = waveform_channels[0, :n_channels]
-    idx_channels_A = np.arange(n_channels)
-    idx_channels_B = np.zeros(n_channels, dtype=int)
-    
-    for k in range(n_channels):
-        temp = np.where(waveform_channels[1,:] == channels[k])[0]
-        if len(temp) == 0:
-            return 0
-            
-        idx_channels_B[k] = temp[0]
-    
-    waveformsA = waveforms[0, idx_channels_A, :].reshape(1, -1)
-    waveformsB = waveforms[1, idx_channels_B, :].reshape(1, -1)
-    
-    temp = np.corrcoef(waveformsA, waveformsB)
-    similarityAB = np.atanh(temp[0,1])
-
-    # similarityBA
-    channels = waveform_channels[1, :n_channels]
-    idx_channels_A = np.zeros(n_channels, dtype=int)
-    idx_channels_B = np.arange(n_channels)
-    
-    for k in range(n_channels):
-        temp = np.where(waveform_channels[0,:] == channels[k])[0]
-        if len(temp) == 0:
-            return 0
-            
-        idx_channels_A[k] = temp[0]
-    
-    waveformsA = waveforms[0, idx_channels_A, :].reshape(1, -1)
-    waveformsB = waveforms[1, idx_channels_B, :].reshape(1, -1)
-    
-    temp = np.corrcoef(waveformsA, waveformsB)
-    similarityBA = np.atanh(temp[0,1])
-
-    return np.max([similarityAB, similarityBA])
-
-def computeSimilarity(x, y):
-    if np.all(x == x[0]) or np.all(y == y[0]):
-        return 0
-
-    temp = np.corrcoef(x,y)
-    similarity = np.atanh(temp[0,1])
-    if np.isnan(similarity):
-        similarity = 0
-
-    return similarity
-
 

@@ -5,6 +5,7 @@ from tqdm import tqdm
 from .utils import computeSimilarity, waveformSimilarity
 import hdbscan
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.neighbors import NearestNeighbors
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import optimal_leaf_ordering, leaves_list
 import matplotlib
@@ -17,13 +18,12 @@ def iterativeClustering(user_settings):
     output_folder = user_settings["output_folder"]
 
     sessions = np.load(os.path.join(data_folder , 'session_index.npy'))
+    channel_locations = np.load(os.path.join(data_folder, 'channel_locations.npy'))
 
     isi = np.load(os.path.join(output_folder, 'isi.npy'))
     auto_corr = np.load(os.path.join(output_folder, 'auto_corr.npy'))
     peth = np.load(os.path.join(output_folder, 'peth.npy'))
-    waveforms = np.load(os.path.join(output_folder, 'waveforms.npy'))
     waveforms_corrected = np.load(os.path.join(output_folder, 'waveforms_corrected.npy'))
-    waveform_channels = np.load(os.path.join(output_folder, 'waveform_channels.npy'))
     locations = np.load(os.path.join(output_folder, 'locations.npy'))
     positions = np.load(os.path.join(output_folder, 'Motion.npy'))
 
@@ -48,75 +48,110 @@ def iterativeClustering(user_settings):
     # Clear temp variables
     del corrected_locations, y_distance_matrix, idx_row, idx_col, idx_good
 
-    # Initialize similarity arrays
-    similarity_waveform = np.zeros(n_pairs)
-    similarity_raw_waveform = np.zeros(n_pairs)
-    if 'Waveform' in user_settings['clustering']['features']:
-        out = Parallel(n_jobs=user_settings["n_jobs"])(delayed(waveformSimilarity)(
-            waveforms[idx_unit_pairs[k,:],:,:], waveform_channels[idx_unit_pairs[k,:],:], user_settings['waveformCorrection']['n_nearest_channels']) 
-            for k in tqdm(range(n_pairs), desc='Computing raw waveform similarity'))
-        
-        similarity_raw_waveform = np.array(out)
+    # Get waveform features
+    n_nearest_channels = user_settings['waveformCorrection']['n_nearest_channels']
+    n_unit = np.size(waveforms_corrected, 0)
+    
+    # find k-nearest neighbors for each channel
+    nn = NearestNeighbors(n_neighbors=n_nearest_channels).fit(channel_locations)
+    _, idx_nearest = nn.kneighbors(channel_locations)
+    idx_nearest_sorted = np.sort(idx_nearest, axis=1)
+    idx_nearest_unique, idx_groups = np.unique(idx_nearest_sorted, axis=0, return_inverse=True)
 
-        out = Parallel(n_jobs=user_settings["n_jobs"])(delayed(waveformSimilarity)(
-            waveforms_corrected[idx_unit_pairs[k,:],:,:], waveform_channels[idx_unit_pairs[k,:],:], user_settings['waveformCorrection']['n_nearest_channels']) 
-            for k in tqdm(range(n_pairs), desc='Computing corrected waveform similarity'))
+    # Compute the similarity matrix
+    waveform_similarity_matrix = np.zeros((n_unit, n_unit))
+    ptt = np.squeeze(np.max(waveforms_corrected, axis=2) - np.min(waveforms_corrected, axis=2))
+    ch = np.argmax(ptt, axis=1)
+
+    for k in tqdm(range(idx_nearest_unique.shape[0]), desc='Computing waveform similarity'):
+        idx_included = np.where(idx_groups == k)[0]
+        idx_units = np.where(np.isin(ch, idx_included))[0]
+
+        if len(idx_units) == 0:
+            continue
+
+        waveform_this = np.reshape(waveforms_corrected[:,idx_nearest_unique[k,:],:], (n_unit, -1))
+
+        temp = np.corrcoef(waveform_this)
+        temp[np.isnan(temp)] = 0
+        temp = np.atanh(temp)
         
-        similarity_waveform = np.array(out)
+        waveform_similarity_matrix[idx_units,:] = temp[idx_units,:]
+
+    waveform_similarity_matrix = np.max(np.stack((waveform_similarity_matrix, waveform_similarity_matrix.T), axis=2), axis=2)  
+
+    # Compute similarity metrics
+    similarity_waveform = [waveform_similarity_matrix[idx_unit_pairs[k,0], idx_unit_pairs[k,1]] for k in range(n_pairs)]
 
     similarity_ISI = np.zeros(n_pairs)
-    if 'ISI' in user_settings['clustering']['features']:
-        out = Parallel(n_jobs=user_settings["n_jobs"])(delayed(computeSimilarity)(
-            isi[idx_unit_pairs[k,0],:], isi[idx_unit_pairs[k,1],:]) for k in tqdm(range(n_pairs), desc='Computing ISI similarity'))
-
-        similarity_ISI = np.array(out)
+    ISI_similarity_matrix = np.zeros((n_unit, n_unit))
+    if 'ISI' in user_settings['motionEstimation']['features']:
+        ISI_similarity_matrix = np.corrcoef(isi)
+        ISI_similarity_matrix[np.isnan(ISI_similarity_matrix)] = 0
+        ISI_similarity_matrix = np.atanh(ISI_similarity_matrix)
+        ISI_similarity_matrix = 0.5 * (ISI_similarity_matrix + ISI_similarity_matrix.T) # make it symmetric
+        similarity_ISI = [ISI_similarity_matrix[idx_unit_pairs[k,0], idx_unit_pairs[k,1]] for k in range(n_pairs)]
 
     similarity_AutoCorr = np.zeros(n_pairs)
-    if 'AutoCorr' in user_settings['clustering']['features']:
-        out = Parallel(n_jobs=user_settings["n_jobs"])(delayed(computeSimilarity)(
-            auto_corr[idx_unit_pairs[k,0],:], auto_corr[idx_unit_pairs[k,1],:]) for k in tqdm(range(n_pairs), desc='Computing AutoCorr similarity'))
-
-        similarity_AutoCorr = np.array(out)
+    AutoCorr_similarity_matrix = np.zeros((n_unit, n_unit))
+    if 'AutoCorr' in user_settings['motionEstimation']['features']:
+        AutoCorr_similarity_matrix = np.corrcoef(auto_corr)
+        AutoCorr_similarity_matrix[np.isnan(AutoCorr_similarity_matrix)] = 0
+        AutoCorr_similarity_matrix = np.atanh(AutoCorr_similarity_matrix)
+        AutoCorr_similarity_matrix = 0.5 * (AutoCorr_similarity_matrix + AutoCorr_similarity_matrix.T) # make it symmetric
+        similarity_AutoCorr = [AutoCorr_similarity_matrix[idx_unit_pairs[k,0], idx_unit_pairs[k,1]] for k in range(n_pairs)]
 
     similarity_PETH = np.zeros(n_pairs)
-    if 'PETH' in user_settings['clustering']['features']:
-        out = Parallel(n_jobs=user_settings["n_jobs"])(delayed(computeSimilarity)(
-            peth[idx_unit_pairs[k,0],:], peth[idx_unit_pairs[k,1],:]) for k in tqdm(range(n_pairs), desc='Computing PETH similarity'))  
-        
-        similarity_PETH = np.array(out)
+    PETH_similarity_matrix = np.zeros((n_unit, n_unit))
+    if 'PETH' in user_settings['motionEstimation']['features']:
+        PETH_similarity_matrix = np.corrcoef(peth)
+        PETH_similarity_matrix[np.isnan(PETH_similarity_matrix)] = 0
+        PETH_similarity_matrix = np.atanh(PETH_similarity_matrix)
+        PETH_similarity_matrix = 0.5 * (PETH_similarity_matrix + PETH_similarity_matrix.T) # make it symmetric
+        similarity_PETH = [PETH_similarity_matrix[idx_unit_pairs[k,0], idx_unit_pairs[k,1]] for k in range(n_pairs)]
+
+    np.save(os.path.join(output_folder, 'waveform_similarity_matrix.npy'), waveform_similarity_matrix)
+    np.save(os.path.join(output_folder, 'ISI_similarity_matrix.npy'), ISI_similarity_matrix)
+    np.save(os.path.join(output_folder, 'AutoCorr_similarity_matrix.npy'), AutoCorr_similarity_matrix)
+    np.save(os.path.join(output_folder, 'PETH_similarity_matrix.npy'), PETH_similarity_matrix)
+
+    # Combine all similarity metrics
+    names_all = ['Waveform', 'ISI', 'AutoCorr', 'PETH']
+    similarity_all = np.column_stack((similarity_waveform, similarity_ISI, similarity_AutoCorr, similarity_PETH))   
+    similarity_matrix_all = np.stack((waveform_similarity_matrix, ISI_similarity_matrix, AutoCorr_similarity_matrix, PETH_similarity_matrix), axis=2)
 
     print(f"Computing similarity done! Saved to {os.path.join(user_settings['output_folder'], 'AllSimilarity.npy')}")
 
     # Save results
     if user_settings['save_intermediate_results']:
-        np.save(os.path.join(user_settings['output_folder'], 'AllSimilarity.npy'), 
+        np.savez(os.path.join(user_settings['output_folder'], 'AllSimilarity.npz'), 
             {'similarity_waveform': similarity_waveform,
-            'similarity_raw_waveform': similarity_raw_waveform,
+             'waveform_similarity_matrix': waveform_similarity_matrix,
             'similarity_ISI': similarity_ISI,
+            'ISI_similarity_matrix': ISI_similarity_matrix,
             'similarity_AutoCorr': similarity_AutoCorr,
+            'AutoCorr_similarity_matrix': AutoCorr_similarity_matrix,
             'similarity_PETH': similarity_PETH,
+            'PETH_similarity_matrix': PETH_similarity_matrix,
             'idx_unit_pairs': idx_unit_pairs,
             'session_pairs': session_pairs})
+        
+    # Delete the temporary variables to save memory
+    del temp
+    del similarity_waveform, similarity_ISI, similarity_AutoCorr, similarity_PETH
+    del waveform_similarity_matrix, ISI_similarity_matrix, AutoCorr_similarity_matrix, PETH_similarity_matrix
 
     n_session = np.max(sessions)
-
-    names_all = ['Waveform', 'ISI', 'AutoCorr', 'PETH']
-    similarity_all = np.column_stack((similarity_waveform, similarity_ISI, similarity_AutoCorr, similarity_PETH))
 
     similarity_names = user_settings['clustering']['features']
     idx_names = np.zeros(len(similarity_names), dtype=int)
     for k in range(len(similarity_names)):
         idx_names[k] = names_all.index(similarity_names[k])
     similarity_all = similarity_all[:, idx_names]
+    similarity_matrix_all = similarity_matrix_all[:, :, idx_names]
 
     weights = np.ones(len(similarity_names))/len(similarity_names)
-    mean_similarity = np.sum(similarity_all * weights, axis=1)
-
-    similarity_matrix = np.zeros((n_unit, n_unit))
-    for k in range(idx_unit_pairs.shape[0]):
-        similarity_matrix[idx_unit_pairs[k,0], idx_unit_pairs[k,1]] = mean_similarity[k]
-        similarity_matrix[idx_unit_pairs[k,1], idx_unit_pairs[k,0]] = mean_similarity[k]
-    np.fill_diagonal(similarity_matrix, 5)
+    similarity_matrix = np.sum(similarity_matrix_all*weights, axis=2)
 
     for iter in range(1, user_settings['clustering']['n_iter']+1):
         print(f'Iteration {iter} starts!')
@@ -149,7 +184,7 @@ def iterativeClustering(user_settings):
         np.fill_diagonal(hdbscan_matrix, True)
         
         is_matched = np.array([hdbscan_matrix[idx_unit_pairs[k,0], idx_unit_pairs[k,1]] 
-                                for k in range(len(mean_similarity))])
+                                for k in range(n_pairs)])
         
         if iter != user_settings['motionEstimation']['n_iter'] - 1:
             # LDA and update weights
@@ -163,16 +198,10 @@ def iterativeClustering(user_settings):
             print(weights)
             
             # Update the similarity matrix
-            mean_similarity = np.sum(similarity_all * weights, axis=1)
-            similarity_matrix = np.zeros((n_unit, n_unit))
-            
-            for k in range(idx_unit_pairs.shape[0]):
-                similarity_matrix[idx_unit_pairs[k,0], idx_unit_pairs[k,1]] = mean_similarity[k]
-                similarity_matrix[idx_unit_pairs[k,1], idx_unit_pairs[k,0]] = mean_similarity[k]
-            
-            np.fill_diagonal(similarity_matrix, 5)
+            similarity_matrix = np.sum(similarity_matrix_all*weights, axis=2)
 
     Z = clusterer.single_linkage_tree_.to_numpy()
+    np.save(os.path.join(output_folder, 'DistanceMatrix.npy'), distance_matrix)
     Z_ordered = optimal_leaf_ordering(Z, squareform(distance_matrix))
     leafOrder = leaves_list(Z_ordered)
 
