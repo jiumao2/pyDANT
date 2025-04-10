@@ -58,7 +58,7 @@ def preprocess(user_settings):
         peaks_to_trough = np.max(waveform_all, axis=1) - np.min(waveform_all, axis=1)
         channel = np.argmax(peaks_to_trough)
         
-        spike_times = spike_times - spike_times[0]
+        spike_times = spike_times - np.min(spike_times)
 
         # compute the autocorrelogram feauture
         auto_corr = None
