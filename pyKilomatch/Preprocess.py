@@ -285,15 +285,6 @@ def spikeInfo2npy(user_settings):
 
     # make a folder to store the data
     data_folder = user_settings["path_to_data"]
-    output_folder = user_settings["output_folder"]
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-    print(f'The output will be saved to {output_folder}!')
-
-    # make a folder to store the figures
-    figures_folder = os.path.join(output_folder, 'Figures')
-    if not os.path.exists(figures_folder):
-        os.makedirs(figures_folder)
 
     # Preprocess the spikeInfo
     n_unit = len(spikeInfo['spikeInfo']['RatName'])
@@ -339,14 +330,7 @@ def spikeInfo2npy(user_settings):
         peth = None
 
     # Save the preprocessed data
-    print(f'Saving to {output_folder}...')
-
-    np.save(os.path.join(output_folder, 'locations.npy'), locations)
-    np.save(os.path.join(output_folder, 'amplitude.npy'), amp)
-    np.save(os.path.join(output_folder, 'peak_channels.npy'), channel)
-    np.save(os.path.join(output_folder, 'auto_corr.npy'), auto_corr)
-    np.save(os.path.join(output_folder, 'isi.npy'), isi)
-    np.save(os.path.join(output_folder, 'peth.npy'), peth)
+    print(f'Saving to {data_folder}...')
 
     np.save(os.path.join(data_folder, 'waveform_all.npy'), waveform_all)
     np.save(os.path.join(data_folder, 'session_index.npy'), SessionIndex)
