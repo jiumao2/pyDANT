@@ -2,7 +2,6 @@ import numpy as np
 from joblib import Parallel, delayed
 import os
 from tqdm import tqdm
-from .utils import computeSimilarity, waveformSimilarity
 import hdbscan
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.neighbors import NearestNeighbors
