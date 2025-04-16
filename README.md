@@ -1,6 +1,8 @@
 # pyKilomatch
 
 [![View pyKilomatch on GitHub](https://img.shields.io/badge/GitHub-Kilomatch-blue.svg)](https://github.com/jiumao2/pyKilomatch)
+![PyPI - Version](https://img.shields.io/pypi/v/pyKilomatch)
+![GitHub License](https://img.shields.io/github/license/jiumao2/pyKilomatch)
 
 This project is a Python implementation of [Kilomatch](https://github.com/jiumao2/Kilomatch), converted from the original MATLAB code.
 
@@ -101,7 +103,8 @@ python mainKilomatch.py
 > [DREDge](https://github.com/evarol/DREDge)  
 > Robust online multiband drift estimation in electrophysiology data  
 > 
-> DREDge: robust motion correction for high-density extracellular recordings across species. https://www.biorxiv.org/content/10.1101/2023.10.24.563768v1
+> Windolf, Charlie, Han Yu, Angelique C. Paulk, Domokos Meszéna, William Muñoz, Julien Boussard, Richard Hardstone, et al. “DREDge: Robust Motion Correction for High-Density Extracellular Recordings across Species.” Nature Methods, March 6, 2025. https://doi.org/10.1038/s41592-025-02614-5.
+
 
 ## License
 
