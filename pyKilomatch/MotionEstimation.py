@@ -1,4 +1,3 @@
-from tarfile import data_filter
 import numpy as np
 import hdbscan
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
@@ -12,6 +11,19 @@ matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
 import matplotlib.pyplot as plt
 
 def motionEstimation(user_settings):
+    """Estimate the motion of the electrode and save the results.
+    Compute the features of each unit and do clustering the find the matching units.
+    Motion estimation is then performed to minimize the distance between the matching units.
+
+    Arguments:
+        - user_settings (dict): User settings
+
+    Outputs:
+        - motion.npy: The motion of the electrode
+        - SimilarityForCorretion.npz (optional): The similarity information used for motion estimation
+
+    """
+
     # Get all features
     data_folder = user_settings["path_to_data"]
     output_folder = user_settings["output_folder"]

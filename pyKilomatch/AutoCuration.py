@@ -7,6 +7,21 @@ matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
 import matplotlib.pyplot as plt
 
 def autoCuration(user_settings):
+    """Automatic curation of clustering results.
+    Perform automatic curation of clustering results based on user settings.
+    This function loads precomputed features, applies auto-splitting and auto-merging of clusters,
+    and saves the curated results.
+
+    Arguments:
+        - user_settings (dict): User settings
+
+    Outputs:
+        - ClusterMatrix.npy: The connectivity matrix of clusters after curation.
+        - IdxCluster.npy: The cluster index of each unit after curation. -1 indicates unpaired units.
+        - MatchedPairs.npy: The matched pairs of units after curation.
+        - Output.npz (optional): A dictionary containing other information about the final results.
+    """
+
     # Load precomputed features
     data_folder = user_settings["path_to_data"]
     output_folder = user_settings["output_folder"]

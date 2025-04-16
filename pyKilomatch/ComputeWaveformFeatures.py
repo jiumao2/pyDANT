@@ -5,6 +5,18 @@ import os
 from .utils import waveformEstimation
 
 def computeWaveformFeatures(user_settings):
+    """ Compute the corrected waveforms based on the motion of the probe.
+    The corrected waveforms on the reference probe are computed using the Kriging interpolation method
+    and saved to the output folder.
+
+    Arguments:
+        - user_settings (dict): User settings
+
+    Outputs:
+        - waveforms_corrected.npy: The corrected waveforms.
+    
+    """
+
     data_folder = user_settings["path_to_data"]
     output_folder = user_settings["output_folder"]
 

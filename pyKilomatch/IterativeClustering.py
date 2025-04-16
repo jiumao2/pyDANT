@@ -1,5 +1,4 @@
 import numpy as np
-from joblib import Parallel, delayed
 import os
 from tqdm import tqdm
 import hdbscan
@@ -12,6 +11,27 @@ matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
 import matplotlib.pyplot as plt
 
 def iterativeClustering(user_settings):
+    """Iterative clustering of the units based on the similarity metrics using HDBSCAN and LDA.
+    The similarity metrics are computed firstly, and then HDBSCAN and LDA are performed alternatively to find the best clustering results.
+    The clustering results are saved to the output folder.
+
+    Arguments:
+        - user_settings (dict): User settings
+
+    Outputs:
+        - SimilarityMatrix.npy: The similarity matrix of the units
+        - SimilarityWeights.npy: The weights of the similarity metrics
+        - SimilarityThreshold.npy: The threshold of the similarity metrics from LDA
+        - ClusteringResults.npz: The clustering results of the units
+        - DistanceMatrix.npy: The distance matrix used for HDBSCAN
+        - waveform_similarity_matrix.npy: The waveform similarity matrix of the units
+        - ISI_similarity_matrix.npy: The ISI similarity matrix of the units
+        - AutoCorr_similarity_matrix.npy: The autocorrelogram similarity matrix of the units
+        - PETH_similarity_matrix.npy: The PETH similarity matrix of the units
+        - AllSimilarity.npz (optional): The similarity metrics of all units used for clustering
+ 
+    """
+
     # Load precomputed features
     data_folder = user_settings["path_to_data"]
     output_folder = user_settings["output_folder"]
