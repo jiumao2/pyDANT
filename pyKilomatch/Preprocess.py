@@ -58,15 +58,11 @@ def preprocess(user_settings):
         raise ValueError('SessionIndex should start from 1 and be coninuous without any gaps!')
 
     print(n_session, 'sessions found!')
-    # preprocessing data
-    chanMap = {
-        'xcoords': channel_locations[:, 0],
-        'ycoords': channel_locations[:, 1]
-    }
 
+    # preprocessing data
     def process_spike_info(waveform, spike_times):
         # compute the location of each unit
-        x, y, z, amp = spikeLocation(waveform, chanMap,
+        x, y, z, amp = spikeLocation(waveform, channel_locations,
                                     user_settings['spikeLocation']['n_nearest_channels'],
                                     user_settings['spikeLocation']['location_algorithm'])
         

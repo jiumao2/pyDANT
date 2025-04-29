@@ -50,7 +50,7 @@ def graphEditNumber(matA, matB):
     nSame = sum([np.sum(comp_AB == i)-1 for i in np.unique(comp_AB)])
     return (nSame, nA, nB)
 
-def spikeLocation(waveforms_mean, chanMap, n_nearest_channels=20, algorithm='monopolar_triangulation'):
+def spikeLocation(waveforms_mean, channel_locations, n_nearest_channels=20, algorithm='monopolar_triangulation'):
     '''Spike location estimation using either center_of_mass or monopolar_triangulation
     
     monopolar_triangulation: refer to Boussard, Julien, Erdem Varol, Hyun Dong Lee, Nishchal Dethe, and Liam Paninski. “Three-Dimensional Spike Localization and Improved Motion Correction for Neuropixels Recordings.” In Advances in Neural Information Processing Systems, 34:22095–105. Curran Associates, Inc., 2021. https://proceedings.neurips.cc/paper/2021/hash/b950ea26ca12daae142bd74dba4427c8-Abstract.html.
@@ -59,7 +59,7 @@ def spikeLocation(waveforms_mean, chanMap, n_nearest_channels=20, algorithm='mon
 
     Arguments:
         - waveforms_mean: mean waveforms (n_channels, n_samples)
-        - chanMap: channel map (dict) containing x and y coordinates of channels
+        - channel_locations: 2D array of channel locations (n_channels, 2)
         - n_nearest_channels: number of nearest channels to consider for localization, default is 20
         - algorithm: 'center_of_mass' or 'monopolar_triangulation', default is 'monopolar_triangulation'
 
@@ -72,8 +72,6 @@ def spikeLocation(waveforms_mean, chanMap, n_nearest_channels=20, algorithm='mon
     '''
 
     # get n_nearest_channels from the channels with the largest peak-to-trough value
-    channel_locations = np.column_stack((chanMap["xcoords"], chanMap["ycoords"]))
-
     peaks_to_trough = np.max(waveforms_mean, axis=1) - np.min(waveforms_mean, axis=1)
     idx_max = np.argmax(peaks_to_trough)
 
