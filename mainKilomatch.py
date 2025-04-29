@@ -1,4 +1,4 @@
-from pyKilomatch import preprocess, motionEstimation, computeWaveformFeatures, iterativeClustering, autoCuration
+from pyKilomatch import preprocess, motionEstimation, finalClustering, autoCuration
 import hjson
 import time
 import numpy as np
@@ -13,8 +13,7 @@ time_start = time.time()
 
 preprocess(user_settings)
 motionEstimation(user_settings)
-computeWaveformFeatures(user_settings)
-iterativeClustering(user_settings)
+finalClustering(user_settings)
 autoCuration(user_settings)
 
 # Save the run time

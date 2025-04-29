@@ -113,47 +113,37 @@ def spikeLocation(waveforms_mean, chanMap, n_nearest_channels=20, algorithm='mon
     
     return tuple(output["x"])
 
-def waveformEstimation(waveform_mean, location, chanMap, location_new, x, y):
+def waveformEstimation(waveform_mean, location, channel_locations, location_new):
     '''Waveform estimation with Kriging interpolation.
 
     Arguments:
         - waveform_mean: mean waveform (n_channels, n_samples)
         - location: original location of the spike (x, y), 1D array of length 2
-        - chanMap: channel map (dict) containing x and y coordinates of channels
+        - channel_locations: 2D array of channel locations (n_channels, 2)
         - location_new: new location of the spike (x, y), 1D array of length 2
-        - x: x coordinate of the channel, scalar
-        - y: y coordinate of the channel, scalar
     
     Returns:
         - waveform_out: estimated waveform at the new location (n_samples)
     '''
-
-    # Filter connected channels
-    channel_locations = np.column_stack((chanMap["xcoords"], chanMap["ycoords"]))
     
     # Calculate mapped location
-    location_mapped_to_old = np.array([x, y]) - (np.array(location_new) - np.array(location))
-    
-    n_channels = 32
-    distance_to_location = np.sum((channel_locations - np.array([x, y]))**2, axis=1)
-    
-    idx_sorted = np.argsort(distance_to_location)
-    idx_included = idx_sorted[:n_channels]
+    location_mapped_to_old = channel_locations - (np.array(location_new) - np.array(location))
     
     # 2D coordinates for interpolation
-    xp = channel_locations[idx_included, :]
+    xp = channel_locations
     
     # 2D kernel of the original channel positions
     Kxx = computeKernel2D(xp, xp)
     
     # 2D kernel of the new channel positions
-    yp = location_mapped_to_old[:2]  # Use only x,y coordinates
-    Kyx = computeKernel2D(yp[np.newaxis, :], xp)
+    yp = location_mapped_to_old
+    Kyx = computeKernel2D(yp, xp)
     
     # Kernel prediction matrix
     M = Kyx @ np.linalg.inv(Kxx + 0.01 * np.eye(Kxx.shape[0]))
     
-    waveform_out = np.sum(waveform_mean[idx_included, :] * M.T, axis=0)
+    # Interpolated waveform at the new location
+    waveform_out = M @ waveform_mean
     
     return waveform_out
 
