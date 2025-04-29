@@ -1,8 +1,8 @@
 # pyKilomatch
 
-[![View pyKilomatch on GitHub](https://img.shields.io/badge/GitHub-pyKilomatch-blue.svg)](https://github.com/jiumao2/pyKilomatch)
-![PyPI - Version](https://img.shields.io/pypi/v/pyKilomatch)
-![GitHub License](https://img.shields.io/github/license/jiumao2/pyKilomatch)
+[![View pyKilomatch on GitHub](https://img.shields.io/badge/GitHub-pyKilomatch-blue.svg)](https://github.com/jiumao2/pykilomatch)
+![PyPI - Version](https://img.shields.io/pypi/v/pykilomatch)
+![GitHub License](https://img.shields.io/github/license/jiumao2/pykilomatch)
 
 This project is a Python implementation of [Kilomatch](https://github.com/jiumao2/Kilomatch), converted from the original MATLAB code.
 
