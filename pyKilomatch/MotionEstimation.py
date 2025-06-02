@@ -38,7 +38,6 @@ def computeMotion(user_settings):
     idx_out = idx_unit_pairs[:,0] * n_units + idx_unit_pairs[:,1] 
     good_matrix = np.logical_and(similarity_matrix > similarity_thres, cluster_matrix > 0)
     idx_good = np.where(good_matrix.ravel()[idx_out] == 1)[0]
-    print(idx_good)
 
     similarity = np.zeros(n_pairs)
     for k in range(n_pairs):

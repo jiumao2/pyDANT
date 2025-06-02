@@ -19,6 +19,7 @@ def computeWaveformFeatures(user_settings, waveform_all):
 
     data_folder = user_settings["path_to_data"]
     output_folder = user_settings["output_folder"]
+    n_templates = user_settings["waveformCorrection"]["n_templates"]
 
     channel_locations = np.load(os.path.join(data_folder, 'channel_locations.npy'))
     sessions = np.load(os.path.join(data_folder , 'session_index.npy'))
@@ -30,24 +31,33 @@ def computeWaveformFeatures(user_settings, waveform_all):
     n_channel = waveform_all.shape[1]
     n_unit = waveform_all.shape[0]
 
-    def process_spike(locations_this, dy, channel_locations, waveform_this):
-        location_new = locations_this.copy()
-        location_new[1] -= dy
+    def process_spike(locations_this, positions, channel_locations, waveform_this, session_this, n_templates):
+        if n_templates == 1:
+            dy_all = [positions[session_this-1]]
+        else:
+            dy_all = [positions[session_this-1] - np.min(positions), positions[session_this-1] - np.max(positions)]
 
-        waveforms_corrected = waveformEstimation(
-            waveform_this, locations_this, channel_locations, location_new)
-        
+        waveforms_corrected = np.zeros((n_channel, n_sample, n_templates))
+
+        for k in range(n_templates):
+            dy = dy_all[k]
+            location_new = locations_this.copy()
+            location_new[1] -= dy
+
+            waveforms_corrected[:,:,k] = waveformEstimation(
+                waveform_this, locations_this, channel_locations, location_new)
+            
         return waveforms_corrected
 
     # Run parallel processing with progress bar
     out = Parallel(n_jobs=user_settings["n_jobs"])(
-        delayed(process_spike)(locations[k,:2], positions[sessions[k]-1], channel_locations, waveform_all[k,:,:]) 
+        delayed(process_spike)(locations[k,:2], positions, channel_locations, waveform_all[k,:,:], sessions[k], n_templates) 
         for k in tqdm(range(n_unit), desc='Computing waveform features')
     )
 
-    waveforms_corrected = np.zeros((n_unit, n_channel, n_sample))
+    waveforms_corrected = np.zeros((n_unit, n_channel, n_sample, n_templates))
     for k in range(n_unit):
-        waveforms_corrected[k, :, :] = out[k]
+        waveforms_corrected[k,:,:,:] = out[k]
 
     # Save the corrected waveforms
     output_folder = user_settings['output_folder']

@@ -13,7 +13,8 @@
     
     // parameters for waveform correction
     "waveformCorrection":{
-        "n_nearest_channels": 38 // number of channels used for similarity calculation 
+        "n_nearest_channels": 38, // number of channels used for similarity calculation
+        "n_templates": 2 // number of templates used for waveform correction. Should be 1 or 2 
     },
 
     // autocorrelogram similarity related parameters

@@ -60,6 +60,12 @@ def computeWaveformSimilarityMatrix(user_settings, waveforms, channel_locations)
     # Get waveform features
     n_nearest_channels = user_settings['waveformCorrection']['n_nearest_channels']
     n_unit = waveforms.shape[0]
+
+    if len(waveforms.shape) > 3:
+        n_templates = waveforms.shape[3]
+    else:
+        n_templates = 1
+        waveforms = np.expand_dims(waveforms, axis=3)
     
     # find k-nearest neighbors for each channel
     nn = NearestNeighbors(n_neighbors=n_nearest_channels).fit(channel_locations)
@@ -68,26 +74,35 @@ def computeWaveformSimilarityMatrix(user_settings, waveforms, channel_locations)
     idx_nearest_unique, idx_groups = np.unique(idx_nearest_sorted, axis=0, return_inverse=True)
 
     # Compute the similarity matrix
-    waveform_similarity_matrix = np.zeros((n_unit, n_unit))
-    ptt = np.squeeze(np.max(waveforms, axis=2) - np.min(waveforms, axis=2))
-    ch = np.argmax(ptt, axis=1)
+    waveform_similarity_matrix = np.zeros((n_unit, n_unit, n_templates))
 
-    for k in tqdm(range(idx_nearest_unique.shape[0]), desc='Computing waveform similarity'):
-        idx_included = np.where(idx_groups == k)[0]
-        idx_units = np.where(np.isin(ch, idx_included))[0]
+    for i_template in range(n_templates):
+        waveform_similarity_matrix_this = np.zeros((n_unit, n_unit))
+        ptt = np.squeeze(np.max(waveforms[:,:,:,i_template], axis=2) - np.min(waveforms[:,:,:,i_template], axis=2))
+        ch = np.argmax(ptt, axis=1)
 
-        if len(idx_units) == 0:
-            continue
+        for k in tqdm(range(idx_nearest_unique.shape[0]), desc='Computing waveform similarity'):
+            idx_included = np.where(idx_groups == k)[0]
+            idx_units = np.where(np.isin(ch, idx_included))[0]
 
-        waveform_this = np.reshape(waveforms[:,idx_nearest_unique[k,:],:], (n_unit, -1))
+            if len(idx_units) == 0:
+                continue
+            
+            # The slice should be done twice to avoid indexing issues (different with MATLAB)
+            waveform_this = waveforms[:,:,:,i_template]
+            waveform_this = np.reshape(waveforms[:,idx_nearest_unique[k,:],:], (n_unit, -1))
 
-        temp = np.corrcoef(waveform_this)
-        temp[np.isnan(temp)] = 0
-        temp = np.atanh(temp)
+            temp = np.corrcoef(waveform_this)
+            temp[np.isnan(temp)] = 0
+            temp = np.atanh(temp)
+            
+            waveform_similarity_matrix_this[idx_units,:] = temp[idx_units,:]
         
-        waveform_similarity_matrix[idx_units,:] = temp[idx_units,:]
+        waveform_similarity_matrix_this = np.max(np.stack((waveform_similarity_matrix_this, waveform_similarity_matrix_this.T), axis=2), axis=2)  
+        waveform_similarity_matrix[:,:,i_template] = waveform_similarity_matrix_this
 
-    waveform_similarity_matrix = np.max(np.stack((waveform_similarity_matrix, waveform_similarity_matrix.T), axis=2), axis=2)  
+    waveform_similarity_matrix = np.max(waveform_similarity_matrix, axis=2)
+    np.fill_diagonal(waveform_similarity_matrix, np.inf)
 
     return waveform_similarity_matrix
 
@@ -126,6 +141,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
         ISI_similarity_matrix[np.isnan(ISI_similarity_matrix)] = 0
         ISI_similarity_matrix = np.atanh(ISI_similarity_matrix)
         ISI_similarity_matrix = 0.5 * (ISI_similarity_matrix + ISI_similarity_matrix.T) # make it symmetric
+        np.fill_diagonal(ISI_similarity_matrix, np.inf)
 
     AutoCorr_similarity_matrix = np.zeros((n_unit, n_unit))
     if 'AutoCorr' in feature_names:
@@ -133,6 +149,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
         AutoCorr_similarity_matrix[np.isnan(AutoCorr_similarity_matrix)] = 0
         AutoCorr_similarity_matrix = np.atanh(AutoCorr_similarity_matrix)
         AutoCorr_similarity_matrix = 0.5 * (AutoCorr_similarity_matrix + AutoCorr_similarity_matrix.T) # make it symmetric
+        np.fill_diagonal(AutoCorr_similarity_matrix, np.inf)
 
     PETH_similarity_matrix = np.zeros((n_unit, n_unit))
     if 'PETH' in feature_names:
@@ -140,6 +157,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
         PETH_similarity_matrix[np.isnan(PETH_similarity_matrix)] = 0
         PETH_similarity_matrix = np.atanh(PETH_similarity_matrix)
         PETH_similarity_matrix = 0.5 * (PETH_similarity_matrix + PETH_similarity_matrix.T) # make it symmetric
+        np.fill_diagonal(PETH_similarity_matrix, np.inf)
 
     np.save(os.path.join(output_folder, 'waveform_similarity_matrix.npy'), waveform_similarity_matrix)
     np.save(os.path.join(output_folder, 'ISI_similarity_matrix.npy'), ISI_similarity_matrix)
@@ -256,12 +274,7 @@ def iterativeClustering(user_settings, similarity_names, waveforms, positions=No
     # set the threshold based on LDA results
     thres = mdl.intercept_[0] / (-mdl.coef_[0][0]) * weights[0]
 
-    similarity = np.sum(similarity_all * weights, axis=1)
-    good_matches_matrix = np.zeros_like(similarity_matrix, dtype=bool)
-    idx_good_matches = np.where(similarity > thres)[0]
-    for k in idx_good_matches:
-        good_matches_matrix[idx_unit_pairs[k, 0], idx_unit_pairs[k, 1]] = True
-        good_matches_matrix[idx_unit_pairs[k, 1], idx_unit_pairs[k, 0]] = True
+    good_matches_matrix = similarity_matrix > thres
     np.fill_diagonal(good_matches_matrix, True)
 
     # plot the distribution of similarity

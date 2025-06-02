@@ -42,25 +42,6 @@ def autoCuration(user_settings):
 
     hdbscan_matrix_raw = hdbscan_matrix.copy()
 
-    # Split clusters if there's a clear boundary in good_matches_matrix
-    if user_settings['autoCuration']['auto_split']:
-        n_cluster_new = n_cluster
-        for k in range(1, n_cluster+1):
-            units = np.where(idx_cluster_hdbscan == k)[0]
-            graph_this = good_matches_matrix[np.ix_(units, units)]
-            n_sub_clusters, idx_sub_clusters = connected_components(graph_this, directed=False)
-            
-            if n_sub_clusters <= 1:
-                continue
-                
-            for j in range(2, n_sub_clusters+1):
-                units_this = units[idx_sub_clusters == j-1]
-                idx_cluster_hdbscan[units_this] = n_cluster_new + j - 1
-                
-            n_cluster_new += n_sub_clusters - 1
-        
-        n_cluster = n_cluster_new
-
     # Remove bad units in clusters
     for k in range(1, n_cluster+1):
         units = np.where(idx_cluster_hdbscan == k)[0]
@@ -86,6 +67,25 @@ def autoCuration(user_settings):
             units = np.delete(units, idx_remove)
             sessions_this = sessions[units]
             similarity_matrix_this = similarity_matrix[np.ix_(units, units)]
+
+    # Split clusters if there's a clear boundary in good_matches_matrix
+    if user_settings['autoCuration']['auto_split']:
+        n_cluster_new = n_cluster
+        for k in range(1, n_cluster+1):
+            units = np.where(idx_cluster_hdbscan == k)[0]
+            graph_this = good_matches_matrix[np.ix_(units, units)]
+            n_sub_clusters, idx_sub_clusters = connected_components(graph_this, directed=False)
+            
+            if n_sub_clusters <= 1:
+                continue
+                
+            for j in range(2, n_sub_clusters+1):
+                units_this = units[idx_sub_clusters == j-1]
+                idx_cluster_hdbscan[units_this] = n_cluster_new + j - 1
+                
+            n_cluster_new += n_sub_clusters - 1
+        
+        n_cluster = n_cluster_new
 
     # Update clusters and hdbscan matrix
     idx_remove = []
