@@ -19,6 +19,9 @@ def autoCuration(user_settings):
         - ClusterMatrix.npy: The connectivity matrix of clusters after curation.
         - IdxCluster.npy: The cluster index of each unit after curation. -1 indicates unpaired units.
         - MatchedPairs.npy: The matched pairs of units after curation.
+        - CurationPairs.npy: The pairs of units that were curated.
+        - CurationTypes.npy: The types of curation applied to each pair.
+        - CurationTypeNames.npy: The names of the curation types.
         - Output.npz (optional): A dictionary containing other information about the final results.
     """
 
@@ -34,6 +37,13 @@ def autoCuration(user_settings):
     hdbscan_matrix = clustering_result['hdbscan_matrix']
     similarity_matrix = clustering_result['similarity_matrix']
     leafOrder = clustering_result['leafOrder']
+
+    # Initialize the curation
+    curation_type_names = ['Removal_SameSession', 'Removal_LowSimilarity', 'Merge_Cluster', 'Merge_Unit']
+    curation_pairs = []
+    curation_types = []
+    num_removal = 0
+    num_merge = 0
 
     # Initialize parameters
     reject_thres = user_settings['autoCuration']['reject_threshold']
@@ -61,6 +71,18 @@ def autoCuration(user_settings):
                             idx_remove.append(i)
                         else:
                             idx_remove.append(j)
+
+            # update curation pairs and types
+            for j in range(len(idx_remove)):
+                unit1 = units[idx_remove[j]]
+                for i in range(len(units)):
+                    if np.any(idx_remove[:j+1] == i):
+                        continue
+
+                    unit2 = units[i]
+                    pair_this = np.sort([unit1, unit2])
+                    curation_pairs.append(pair_this)
+                    curation_types.append(1)
             
             idx_remove = np.unique(idx_remove)
             idx_cluster_hdbscan[units[idx_remove]] = -1
@@ -82,6 +104,18 @@ def autoCuration(user_settings):
             for j in range(2, n_sub_clusters+1):
                 units_this = units[idx_sub_clusters == j-1]
                 idx_cluster_hdbscan[units_this] = n_cluster_new + j - 1
+
+                # update curation pairs and types
+                for i in range(len(units_this)):
+                    unit1 = units_this[i]
+                    for ii in range(len(units)):
+                        if np.any(units_this == units[ii]):
+                            continue
+
+                        unit2 = units[ii]
+                        pair_this = np.sort([unit1, unit2])
+                        curation_pairs.append(pair_this)
+                        curation_types.append(2)
                 
             n_cluster_new += n_sub_clusters - 1
         
@@ -115,7 +149,8 @@ def autoCuration(user_settings):
     num_same, num_before, num_after = graphEditNumber(hdbscan_matrix_raw, hdbscan_matrix)
     assert num_same == num_after
 
-    print(f'{num_before-num_after} deleting steps are done!')
+    num_removal = num_before - num_after
+    print(f'{num_removal} deleting steps are done!')
     print(f'{n_cluster} clusters and {int((np.sum(hdbscan_matrix) - hdbscan_matrix.shape[0])/2)} pairs after removing bad units!')
 
     # merge when two or more adjacent clusters are similar and do not contain units from the same sessions
@@ -170,6 +205,16 @@ def autoCuration(user_settings):
         
                 id = cluster_id_sorted[similar_pairs[k][0]]
                 id_next = cluster_id_sorted[similar_pairs[k][1]]
+
+                # update curation pairs and types
+                units1 = np.where(idx_cluster_hdbscan == id)[0]
+                units2 = np.where(idx_cluster_hdbscan == id_next)[0]
+                for j in range(len(units1)):
+                    for i in range(len(units2)):
+                        pair_this = np.sort([units1[j], units2[i]])
+                        curation_pairs.append(pair_this)
+                        curation_types.append(3)
+
                 idx_cluster_hdbscan[idx_cluster_hdbscan == id_next] = id
             
             # update cluster info
@@ -203,7 +248,8 @@ def autoCuration(user_settings):
         num_same, num_before, num_after = graphEditNumber(hdbscan_matrix_raw, hdbscan_matrix)
         assert num_same == num_before
         
-        print(f'{-num_before+num_after} merging steps are done!')
+        num_merge = num_after - num_before
+        print(f'{num_merge} merging steps are done!')
         print(f'{n_cluster} clusters and {int((np.sum(hdbscan_matrix) - hdbscan_matrix.shape[0])/2)} pairs after merging good clusters!')
         
         # find possible pairings for unpaired units
@@ -237,6 +283,16 @@ def autoCuration(user_settings):
                 
                 flag_match = True
                 count_merges += 1
+                num_merge += 1
+
+                # update curation pairs and types
+
+                units1 = np.where(idx_cluster_hdbscan == idx_cluster_new)[0]
+                for j in range(len(units1)):
+                    pair_this = np.sort([units1[j], unit])
+                    curation_pairs.append(pair_this)
+                    curation_types.append(4)
+
                 idx_cluster_hdbscan[unit] = idx_cluster_new
         
         n_cluster = n_cluster_new
@@ -276,12 +332,17 @@ def autoCuration(user_settings):
                 matched_pairs_curated=matched_pairs_curated,
                 similarity_matrix=similarity_matrix,
                 sessions=sessions,
-                leafOrder=leafOrder)
+                leafOrder=leafOrder,
+                num_removal=num_removal,
+                num_merge=num_merge)
 
     # Save final output
     np.save(os.path.join(output_folder, 'ClusterMatrix.npy'), hdbscan_matrix_curated)
     np.save(os.path.join(output_folder, 'IdxCluster.npy'), idx_cluster_hdbscan_curated)
     np.save(os.path.join(output_folder, 'MatchedPairs.npy'), matched_pairs_curated)
+    np.save(os.path.join(output_folder, 'CurationPairs.npy'), np.array(curation_pairs))
+    np.save(os.path.join(output_folder, 'CurationTypes.npy'), np.array(curation_types))
+    np.save(os.path.join(output_folder, 'CurationTypeNames.npy'), np.array(curation_type_names))
 
     Output = {
         'NumClusters': np.max(idx_cluster_hdbscan_curated),
