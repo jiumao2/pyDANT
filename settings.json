@@ -5,7 +5,7 @@
     "save_intermediate_results": true, // whether to save the intermediate results 
     "n_jobs": -1, // number of jobs to run in parallel. -1 means using all processors
 
-    "centering_waveforms": true, // whether to center the waveforms before processing. If set to true, the waveforms will be centered to the trough of the waveform according to the peak channel.
+    "centering_waveforms": false, // whether to center the waveforms before processing. If set to true, the waveforms will be centered to the trough of the waveform according to the peak channel.
 
     // parameters for estimating the location of each unit
     "spikeLocation":{
