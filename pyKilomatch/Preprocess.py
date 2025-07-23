@@ -23,6 +23,7 @@ def preprocess(user_settings):
         - auto_corr.npy: The autocorrelogram of each unit
         - isi.npy: The ISI of each unit
         - peth.npy: The peri-event time histogram of each unit
+        - waveforms_centered.npy: The centered waveforms of each unit
     
     """
 
@@ -67,8 +68,33 @@ def preprocess(user_settings):
                                     user_settings['spikeLocation']['location_algorithm'])
         
         # compute the peak channel
-        peaks_to_trough = np.max(waveform_all, axis=1) - np.min(waveform_all, axis=1)
+        peaks_to_trough = np.max(waveform, axis=1) - np.min(waveform, axis=1)
         channel = np.argmax(peaks_to_trough)
+
+        # centering the waveforms
+        if user_settings['centering_waveforms']:
+            n_channel = np.shape(waveform)[0]
+            n_sample = np.shape(waveform)[1]
+            center_position = np.ceil(n_sample/2) - 1
+
+            # get the trough positions
+            waveform_peak = np.squeeze(waveform[channel, :])
+            idx_min = np.argmin(waveform_peak)
+
+            # compute the delay
+            delay = np.int64(center_position - idx_min)
+            # if delay != 0:
+            #     print(f'Correcting unit with delay = {delay} ...')
+
+            # filling the borders with nearest values
+            if delay == 0:
+                waveforms_centered = waveform
+            elif delay > 0:
+                waveforms_centered = np.concatenate((waveform[:,0][:, np.newaxis] * np.ones((n_channel, delay)), np.squeeze(waveform[:,:n_sample-delay])), axis=1)
+            else:
+                waveforms_centered = np.concatenate((waveform[:,-delay:], waveform[:,-1][:, np.newaxis] * np.ones((n_channel, -delay))), axis=1)
+
+            assert(np.shape(waveforms_centered) == np.shape(waveform))
         
         spike_times = spike_times - np.min(spike_times)
 
@@ -94,7 +120,7 @@ def preprocess(user_settings):
             isi_freq = isi_hist / np.sum(isi_hist)
             isi_out = gaussian_filter1d(isi_freq, user_settings['ISI']['gaussian_sigma'])
         
-        return (x,y,z,amp,channel,auto_corr,isi_out)
+        return (x,y,z,amp,channel,auto_corr,isi_out,waveforms_centered)
 
     # print('Start preprocessing spikeInfo!')
     out = Parallel(n_jobs=user_settings["n_jobs"])(
@@ -103,8 +129,9 @@ def preprocess(user_settings):
     locations = np.zeros((n_unit, 3), dtype=np.float64)
     amp = np.zeros(n_unit, dtype=np.float64)
     channel = np.zeros(n_unit, dtype=np.int64)
-    auto_corr = np.zeros((n_unit, user_settings['autoCorr']['window']), dtype=np.float64)
+    auto_corr = np.zeros((n_unit, np.shape(out[0][5])[0]), dtype=np.float64)
     isi = np.zeros((n_unit, int(user_settings['ISI']['window']/user_settings['ISI']['binwidth'])), dtype=np.float64)
+    waveforms_centered = np.zeros((n_unit, waveform_all.shape[1], waveform_all.shape[2]), dtype=np.float64)
 
     for k in range(n_unit):
         locations[k, :] = out[k][0:3]
@@ -112,6 +139,7 @@ def preprocess(user_settings):
         channel[k] = out[k][4]
         auto_corr[k, :] = out[k][5]
         isi[k, :] = out[k][6]
+        waveforms_centered[k, :, :] = out[k][7]
 
     # Save the preprocessed data
     print(f'Saving to {output_folder}...')
@@ -122,6 +150,7 @@ def preprocess(user_settings):
     np.save(os.path.join(output_folder, 'auto_corr.npy'), auto_corr)
     np.save(os.path.join(output_folder, 'isi.npy'), isi)
     np.save(os.path.join(output_folder, 'peth.npy'), peth)
+    np.save(os.path.join(output_folder, 'waveforms_centered.npy'), waveforms_centered)
     print('Done!')
 
     # plot the data

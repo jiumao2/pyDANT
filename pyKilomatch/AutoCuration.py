@@ -45,7 +45,6 @@ def autoCuration(user_settings):
     num_removal = 0
 
     # Initialize parameters
-    reject_thres = user_settings['autoCuration']['reject_threshold']
     n_cluster = np.max(idx_cluster_hdbscan)
     print(f'{n_cluster} clusters and {int((np.sum(hdbscan_matrix) - hdbscan_matrix.shape[0])/2)} pairs before removing bad units!')
 
@@ -57,12 +56,12 @@ def autoCuration(user_settings):
         sessions_this = sessions[units]
         similarity_matrix_this = similarity_matrix[np.ix_(units, units)]
         
-        while len(sessions_this) != len(np.unique(sessions_this)) or np.any(similarity_matrix_this < reject_thres):
+        while len(sessions_this) != len(np.unique(sessions_this)):
             idx_remove = []
             
             for j in range(len(sessions_this)):
                 for i in range(j+1, len(sessions_this)):
-                    if sessions_this[i] == sessions_this[j] or similarity_matrix_this[i,j] < reject_thres:
+                    if sessions_this[i] == sessions_this[j]:
                         similarity_i = np.mean(similarity_matrix_this[i,:])
                         similarity_j = np.mean(similarity_matrix_this[j,:])
                         
@@ -108,7 +107,8 @@ def autoCuration(user_settings):
                 for i in range(len(units_this)):
                     unit1 = units_this[i]
                     for ii in range(len(units)):
-                        if np.any(units_this == units[ii]):
+
+                        if idx_sub_clusters[ii] >= 1 and idx_sub_clusters[ii] <= j-1:
                             continue
 
                         unit2 = units[ii]

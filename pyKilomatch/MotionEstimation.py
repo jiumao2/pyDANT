@@ -8,6 +8,7 @@ matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
 import matplotlib.pyplot as plt
 from .IterativeClustering import iterativeClustering
 from .ComputeWaveformFeatures import computeWaveformFeatures
+from .utils import Motion
 
 def computeMotion(user_settings):
     """Compute the motion of the electrode and save the results.
@@ -72,54 +73,123 @@ def computeMotion(user_settings):
     for k in range(len(idx_good)):
         unit1 = idx_unit_pairs[idx_good[k], 0]
         unit2 = idx_unit_pairs[idx_good[k], 1]
-        d_this = np.mean([locations[unit2,1], locations[unit1,1]])
-        
-        idx_1[k] = session_pairs[k,0]
-        idx_2[k] = session_pairs[k,1]
         dy[k] = locations[unit2,1] - locations[unit1,1]
-        depth[k] = d_this
+        depth[k] = np.mean([locations[unit2,1], locations[unit1,1]])
 
     # Compute the motion and 95CI
     n_boot = 100
-    positions = np.zeros(n_session)
-    positions_ci95 = np.zeros((2, n_session))
-    
+    linear_scale = 0.001
+
     if len(np.unique(np.concatenate((idx_1, idx_2)))) != n_session:
         print('Some sessions are not included! Motion estimation failed!')
-    
-    def loss_func(y):
-        return np.sum((dy - (y[idx_2-1] - y[idx_1-1]))**2)
-    
-    res = minimize(loss_func, np.random.rand(n_session), 
-                    options={'maxiter': 1e8})
-    positions = res.x - np.mean(res.x)
+
+    motion = Motion(num_sessions=n_session)
+    if user_settings['waveformCorrection']['linear_correction']:
+        def loss_func(params):
+            p_linear = np.insert(params[:n_session-1], 0, 0)  # Insert zero for the first session
+            p_constant = np.insert(params[n_session-1:], 0, 0)
+
+            p = linear_scale*p_linear[session_pairs-1]*depth[:, np.newaxis] + p_constant[session_pairs-1]
+
+            return np.sum((np.squeeze(p[:,1] - p[:,0]) - dy)**2)
+
+        res = minimize(loss_func, np.random.rand(n_session*2-2), 
+                        options={'maxiter': 1e8})
+        motion.Linear = np.insert(res.x[:n_session-1], 0, 0)
+        motion.Constant = np.insert(res.x[n_session-1:], 0, 0)
+
+        mean_motion = motion.LinearScale*motion.Linear*np.mean(depth) + motion.Constant
+        motion.Constant -= np.mean(mean_motion)
+
+        mean_motion = motion.LinearScale*motion.Linear*np.mean(depth) + motion.Constant
+        min_motion = motion.LinearScale*motion.Linear*np.min(depth) + motion.Constant
+        max_motion = motion.LinearScale*motion.Linear*np.max(depth) + motion.Constant
+    else:
+        def loss_func(params):
+            p = params[session_pairs-1]
+
+            return np.sum((np.squeeze(p[:,1] - p[:,0]) - dy)**2)
+          
+        res = minimize(loss_func, np.random.rand(n_session), 
+                        options={'maxiter': 1e8})
+        motion.Constant = res.x - np.mean(res.x)
+        mean_motion = motion.Constant
+        min_motion = None
+        max_motion = None
     
     # Bootstrap
-    def bootstrap(dy, idx_1, idx_2, n_session):
+    def bootstrap(dy, session_pairs, n_session):
         idx_rand = np.random.randint(0, len(dy), len(dy))
         dy_this = dy[idx_rand]
-        idx_1_this = idx_1[idx_rand]
-        idx_2_this = idx_2[idx_rand]
-        
-        def loss_func_boot(y):
-            return np.sum((dy_this - (y[idx_2_this-1] - y[idx_1_this-1]))**2)
-        
-        res_boot = minimize(loss_func_boot, np.random.rand(n_session), 
-                            options={'maxiter': 1e8})
-        return res_boot.x - np.mean(res_boot.x)
-    
-    p_boot = Parallel(n_jobs=user_settings["n_jobs"])(delayed(bootstrap)(dy, idx_1, idx_2, n_session) 
+        session_pairs_this = session_pairs[idx_rand, :]
+        depth_this = depth[idx_rand]
+
+        if user_settings['waveformCorrection']['linear_correction']:
+            def loss_func(params):
+                p_linear = np.insert(params[:n_session-1], 0, 0)  # Insert zero for the first session
+                p_constant = np.insert(params[n_session-1:], 0, 0)
+
+                p = linear_scale*p_linear[session_pairs_this-1]*depth_this[:, np.newaxis] + p_constant[session_pairs_this-1]
+
+                return np.sum((np.squeeze(p[:,1] - p[:,0]) - dy_this)**2)
+            
+            res = minimize(loss_func, np.random.rand(n_session*2-2), 
+                        options={'maxiter': 1e8})
+            p_linear = np.insert(res.x[:n_session-1], 0, 0)
+            p_constant = np.insert(res.x[n_session-1:], 0, 0)
+
+            mean_motion_this = linear_scale*p_linear*np.mean(depth_this) + p_constant
+            p_constant = p_constant - np.mean(mean_motion_this)
+            mean_motion_boot = linear_scale*p_linear*np.mean(depth_this) + p_constant
+            min_motion_boot = linear_scale*p_linear*np.min(depth_this) + p_constant
+            max_motion_boot = linear_scale*p_linear*np.max(depth_this) + p_constant
+
+        else:
+            def loss_func(params):
+                p = params[session_pairs-1]
+
+                return np.sum((np.squeeze(p[:,1] - p[:,0]) - dy_this)**2)
+          
+            res = minimize(loss_func, np.random.rand(n_session), 
+                        options={'maxiter': 1e8})
+            mean_motion_boot = res.x - np.mean(res.x)
+            min_motion_boot = None
+            max_motion_boot = None
+
+        return mean_motion_boot, min_motion_boot, max_motion_boot
+
+    p_boot = Parallel(n_jobs=user_settings["n_jobs"])(delayed(bootstrap)(dy, session_pairs, n_session) 
         for j in tqdm(range(n_boot), desc='Computing 95CI'))
     
-    positions_ci95 = np.zeros((2, n_session))
+    mean_motion_ci95 = np.zeros((2, n_session))
+    min_motion_ci95 = np.zeros((2, n_session))
+    max_motion_ci95 = np.zeros((2, n_session))
     for j in range(n_session):
-        positions_ci95[0,j] = np.percentile([p[j] for p in p_boot], 2.5)
-        positions_ci95[1,j] = np.percentile([p[j] for p in p_boot], 97.5)
+        mean_motion_ci95[0,j] = np.percentile([p[j] for p in p_boot[0]], 2.5)
+        mean_motion_ci95[1,j] = np.percentile([p[j] for p in p_boot[0]], 97.5)
+
+        if p_boot[1][0] is not None:
+            min_motion_ci95[0,j] = np.percentile([p[j] for p in p_boot[1]], 2.5)
+            min_motion_ci95[1,j] = np.percentile([p[j] for p in p_boot[1]], 97.5)
+
+        if p_boot[2][0] is not None:
+            max_motion_ci95[0,j] = np.percentile([p[j] for p in p_boot[2]], 2.5)
+            max_motion_ci95[1,j] = np.percentile([p[j] for p in p_boot[2]], 97.5)
 
     # plot the motion
     plt.figure(figsize=(5, 5))
-    plt.plot(np.arange(n_session)+1, positions, 'k-')
-    plt.fill_between(np.arange(n_session)+1, positions_ci95[0,:], positions_ci95[1,:], color='gray', alpha=0.5)
+
+    plt.plot(np.arange(n_session)+1, mean_motion, 'k-', label='Mean Motion')
+    plt.fill_between(np.arange(n_session)+1, mean_motion_ci95[0,:], mean_motion_ci95[1,:], color='gray', alpha=0.5)
+
+    if min_motion is not None:
+        plt.plot(np.arange(n_session)+1, min_motion, 'b-', label='Min Motion')
+        plt.fill_between(np.arange(n_session)+1, min_motion_ci95[0,:], min_motion_ci95[1,:], color='blue', alpha=0.5)
+
+    if max_motion is not None:
+        plt.plot(np.arange(n_session)+1, max_motion, 'r-', label='Max Motion')
+        plt.fill_between(np.arange(n_session)+1, max_motion_ci95[0,:], max_motion_ci95[1,:], color='red', alpha=0.5)
+
     plt.xlabel('Sessions')
     plt.ylabel('Motion (μm)')
     plt.xlim([0.5, n_session+0.5])
@@ -127,11 +197,11 @@ def computeMotion(user_settings):
     plt.savefig(os.path.join(user_settings['output_folder'], 'Figures/Motion.png'), dpi=300)
     plt.close()
 
-    # Save data
-    np.save(os.path.join(user_settings['output_folder'], 'motion.npy'), positions)    
+    # Save Motion
+    motion.save(user_settings['output_folder'])
 
-    return positions
-    
+    return motion
+
 
 def motionEstimation(user_settings):
     """Estimate the motion of the electrode and save the results.
@@ -149,7 +219,10 @@ def motionEstimation(user_settings):
     data_folder = user_settings["path_to_data"]
     output_folder = user_settings["output_folder"]
 
-    waveform_all = np.load(os.path.join(data_folder , 'waveform_all.npy'))
+    if user_settings['centering_waveforms']:
+        waveform_all = np.load(os.path.join(output_folder, 'waveforms_centered.npy'))
+    else:
+        waveform_all = np.load(os.path.join(data_folder , 'waveform_all.npy'))
 
     similarity_names_all = user_settings['motionEstimation']['features']
     n_iter_motion_estimation = len(similarity_names_all)
@@ -159,7 +232,7 @@ def motionEstimation(user_settings):
             iterativeClustering(user_settings, similarity_names_all[i], waveform_all)
         else:
             waveforms_corrected = np.load(os.path.join(output_folder, 'waveforms_corrected.npy'))
-            iterativeClustering(user_settings, similarity_names_all[i], waveforms_corrected, positions)
+            iterativeClustering(user_settings, similarity_names_all[i], waveforms_corrected, Motion)
 
-        positions = computeMotion(user_settings)
-        computeWaveformFeatures(user_settings, waveform_all)
+        Motion = computeMotion(user_settings)
+        computeWaveformFeatures(user_settings, waveform_all, Motion)

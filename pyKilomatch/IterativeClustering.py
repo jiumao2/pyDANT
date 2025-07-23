@@ -9,7 +9,7 @@ from scipy.cluster.hierarchy import optimal_leaf_ordering, leaves_list
 import matplotlib
 matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
 import matplotlib.pyplot as plt
-from .utils import corrcoef2
+from .utils import corrcoef2, Motion
 
 def finalClustering(user_settings):
     """Final clustering of the units based on the similarity metrics using HDBSCAN and LDA.
@@ -22,11 +22,11 @@ def finalClustering(user_settings):
 
     similarity_names = user_settings['clustering']['features']
     waveforms_corrected = np.load(os.path.join(output_folder, 'waveforms_corrected.npy'))
-    positions = np.load(os.path.join(output_folder, 'motion.npy'))
+    motion = Motion.load(output_folder)
 
-    iterativeClustering(user_settings, similarity_names, waveforms_corrected, positions)
+    iterativeClustering(user_settings, similarity_names, waveforms_corrected, motion)
 
-def getNearbyPairs(max_distance, sessions, locations, positions=None):
+def getNearbyPairs(max_distance, sessions, locations, motion=None):
     """Get the pairs of units that are within the max_distance.
 
     Arguments:
@@ -42,10 +42,10 @@ def getNearbyPairs(max_distance, sessions, locations, positions=None):
     n_unit = locations.shape[0]
     corrected_locations = np.zeros(n_unit)
     for k in range(n_unit):
-        if positions is None:
+        if motion is None:
             corrected_locations[k] = locations[k,1]
         else:
-            corrected_locations[k] = locations[k,1] - positions[sessions[k]-1]
+            corrected_locations[k] = locations[k,1] - motion.get_motion(sessions[k], locations[k,1])
 
     y_distance_matrix = np.abs(corrected_locations[:,np.newaxis] - corrected_locations[np.newaxis,:])
     idx_col = np.floor(np.arange(y_distance_matrix.size) / y_distance_matrix.shape[0]).astype(int)
@@ -93,7 +93,7 @@ def computeWaveformSimilarityMatrix(user_settings, waveforms, channel_locations)
             waveform_this = waveforms[:,:,:,i_template]
             waveform_this = np.reshape(waveforms[:,idx_nearest_unique[k,:],:], (n_unit, -1))
 
-            temp = corrcoef2(waveform_this[idx_units,:], waveform_this)
+            temp = corrcoef2(waveform_this[idx_units,:].T, waveform_this.T)
             temp[np.isnan(temp)] = 0
             temp = np.atanh(temp)
             
@@ -170,7 +170,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
 
     return (similarity_matrix_all, feature_names_all)
 
-def iterativeClustering(user_settings, similarity_names, waveforms, positions=None):
+def iterativeClustering(user_settings, similarity_names, waveforms, motion=None):
     """Iterative clustering of the units based on the similarity metrics using HDBSCAN and LDA.
     The similarity metrics are computed firstly, and then HDBSCAN and LDA are performed alternatively to find the best clustering results.
     The clustering results are saved to the output folder.
@@ -202,7 +202,7 @@ def iterativeClustering(user_settings, similarity_names, waveforms, positions=No
 
     # Compute the similarities
     max_distance = user_settings['clustering']['max_distance']
-    idx_unit_pairs, _ = getNearbyPairs(max_distance, sessions, locations, positions)
+    idx_unit_pairs, _ = getNearbyPairs(max_distance, sessions, locations, motion)
     n_pairs = idx_unit_pairs.shape[0]
 
     similarity_matrix_all, names_all = computeAllSimilarityMatrix(user_settings, waveforms, similarity_names)

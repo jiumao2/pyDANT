@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.optimize import least_squares
 from scipy.sparse import csgraph
+import os
 
 def computeKernel2D(xp, yp, sig=20):
     '''Compute the 2D kernel matrix for the given points xp and yp.
@@ -177,15 +178,15 @@ def computeAutoCorr(spike_times, window, binwidth):
         - auto_corr: autocorrelation values
         - lag: lag values
     '''
-    
-    n_bins = np.floor(window/binwidth)+1
+
+    n_bins = np.int64(np.floor(window/binwidth)+1)
     auto_corr_right = np.zeros(n_bins)  # the right side of auto_corr
 
     shift = 1
     while True:
         dt = spike_times[shift:] - spike_times[:-shift]
-        i_bin = np.int64(dt / binwidth) + 1
-        i_bin = i_bin[i_bin <= n_bins]
+        i_bin = np.int64(np.round(dt / binwidth))
+        i_bin = i_bin[i_bin < n_bins]
 
         if i_bin.size == 0:
             break
@@ -203,3 +204,89 @@ def computeAutoCorr(spike_times, window, binwidth):
     assert(np.sum(lag==0) > 0)
 
     return auto_corr, lag
+
+
+class Motion:
+    """Class to handle motion estimation data.
+    This class allows for saving and loading motion data, as well as retrieving motion values for specific sessions.
+
+    Attributes:
+        - LinearScale: scaling factor for linear motion (default: 0.001)
+        - Linear: linear motion parameters for each session (if num_sessions is provided)
+        - Constant: constant motion parameters for each session (if num_sessions is provided)
+
+    Methods:
+        - __init__(num_sessions=None): Initializes the Motion object.
+        - save(output_folder): Saves the motion data to a file.
+        - load(output_folder): Loads the motion data from a file.
+        - get_motion(session, depth=None): Retrieves the motion for a specific session, optionally considering depth.  
+
+    """
+
+    def __init__(self, num_sessions=None):
+        """Initialize the Motion class.
+        If num_sessions is None, Linear and Constant will be set to None.
+        Otherwise, they will be initialized as zero arrays of length num_sessions.
+
+        Args:
+            num_sessions (int, optional): Number of sessions. If None, Linear and Constant will be None.
+
+        Returns:
+            None
+
+        """
+        self.LinearScale = np.array(0.001, dtype=np.float64)
+
+        if num_sessions is None:
+            self.Linear = None
+            self.Constant = None
+        else:
+            self.Linear = np.zeros(num_sessions, dtype=np.float64)
+            self.Constant = np.zeros(num_sessions, dtype=np.float64)
+
+    def save(self, output_folder):
+        """Save the motion data to a file.
+
+        Args:
+            output_folder (str): Path to the folder where the motion data will be saved.
+
+        Returns:
+            None
+
+        """
+        np.save(os.path.join(output_folder, 'motion_linear_scale.npy'), self.LinearScale)
+        np.save(os.path.join(output_folder, 'motion_linear.npy'), self.Linear)
+        np.save(os.path.join(output_folder, 'motion_constant.npy'), self.Constant)
+
+    @staticmethod
+    def load(output_folder):
+        """Load the motion data from a file.
+
+        Args:
+            output_folder (str): Path to the folder where the motion data is saved.
+
+        Returns:
+            Motion: An instance of the Motion class with loaded data.
+
+        """
+        motion = Motion()
+        motion.LinearScale = np.load(os.path.join(output_folder, 'motion_linear_scale.npy'))
+        motion.Linear = np.load(os.path.join(output_folder, 'motion_linear.npy'))
+        motion.Constant = np.load(os.path.join(output_folder, 'motion_constant.npy'))
+        return motion
+
+    def get_motion(self, session, depth=None):
+        """Get the motion for a specific session.
+
+        Args:
+            session (int): The session number.
+            depth (float, optional): The depth value. If None, only the constant motion is returned.
+
+        Returns:
+            float: The motion value for the specified session and depth.
+
+        """
+        if depth is None:
+            return self.Constant[session - 1]
+        
+        return self.LinearScale * self.Linear[session - 1] * depth + self.Constant[session - 1]
