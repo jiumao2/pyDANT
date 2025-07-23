@@ -9,6 +9,7 @@ from scipy.cluster.hierarchy import optimal_leaf_ordering, leaves_list
 import matplotlib
 matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
 import matplotlib.pyplot as plt
+from .utils import corrcoef2
 
 def finalClustering(user_settings):
     """Final clustering of the units based on the similarity metrics using HDBSCAN and LDA.
@@ -92,11 +93,11 @@ def computeWaveformSimilarityMatrix(user_settings, waveforms, channel_locations)
             waveform_this = waveforms[:,:,:,i_template]
             waveform_this = np.reshape(waveforms[:,idx_nearest_unique[k,:],:], (n_unit, -1))
 
-            temp = np.corrcoef(waveform_this)
+            temp = corrcoef2(waveform_this[idx_units,:], waveform_this)
             temp[np.isnan(temp)] = 0
             temp = np.atanh(temp)
             
-            waveform_similarity_matrix_this[idx_units,:] = temp[idx_units,:]
+            waveform_similarity_matrix_this[idx_units,:] = temp
         
         waveform_similarity_matrix_this = np.max(np.stack((waveform_similarity_matrix_this, waveform_similarity_matrix_this.T), axis=2), axis=2)  
         waveform_similarity_matrix[:,:,i_template] = waveform_similarity_matrix_this

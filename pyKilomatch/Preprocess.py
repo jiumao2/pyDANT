@@ -4,7 +4,7 @@ import h5py
 from scipy.ndimage import gaussian_filter1d
 from joblib import Parallel, delayed
 from tqdm import tqdm
-from .utils import spikeLocation
+from .utils import spikeLocation, computeAutoCorr
 import matplotlib
 matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
 import matplotlib.pyplot as plt
@@ -77,15 +77,12 @@ def preprocess(user_settings):
         if "AutoCorr" in user_settings['motionEstimation']['features'] or \
                 "AutoCorr" in user_settings['clustering']['features']:
             window = user_settings['autoCorr']['window']  # ms
+            binwidth = user_settings['autoCorr']['binwidth']  # ms
             
-            s = np.zeros(int(np.max(spike_times))+1, dtype=np.int64)
-            s[np.int64(spike_times)] = 1
+            auto_corr, lag = computeAutoCorr(spike_times, window, binwidth)
 
-            auto_corr = np.zeros(window)
-            for i in range(window):
-                auto_corr[i] = np.correlate(s[i+1:], s[:-i-1])[0]
-
-            auto_corr = gaussian_filter1d(auto_corr, user_settings['autoCorr']['gaussian_sigma'])
+            auto_corr[lag<0] = gaussian_filter1d(auto_corr[lag<0], user_settings['autoCorr']['gaussian_sigma'])
+            auto_corr[lag>0] = gaussian_filter1d(auto_corr[lag>0], user_settings['autoCorr']['gaussian_sigma'])
             auto_corr = auto_corr / np.max(auto_corr)
 
         # compute the ISI feature

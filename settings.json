@@ -5,6 +5,8 @@
     "save_intermediate_results": true, // whether to save the intermediate results 
     "n_jobs": -1, // number of jobs to run in parallel. -1 means using all processors
 
+    "centering_waveforms": true, // whether to center the waveforms before processing. If set to true, the waveforms will be centered to the trough of the waveform according to the peak channel.
+
     // parameters for estimating the location of each unit
     "spikeLocation":{
         "location_algorithm": "monopolar_triangulation", // "monopolar_triangulation" or "center_of_mass" 
@@ -14,12 +16,14 @@
     // parameters for waveform correction
     "waveformCorrection":{
         "n_nearest_channels": 38, // number of channels used for similarity calculation
-        "n_templates": 2 // number of templates used for waveform correction. Should be 1 or 2 
+        "linear_correction": false, // whether to do linear correction on motion estimation
+        "n_templates": 1 // number of templates used for waveform correction. Should be 1 or 2 
     },
 
     // autocorrelogram similarity related parameters
     "autoCorr":{
         "window": 300, // ms 
+        "binwidth": 1, // ms
         "gaussian_sigma": 5 // ms, for smoothing the autocorrelogram
     },
 
@@ -33,6 +37,7 @@
     // parameters for motion estimation
     "motionEstimation":{
         "features": [
+            ["AutoCorr", "PETH"],
             ["Waveform", "AutoCorr", "PETH"],
             ["Waveform", "AutoCorr", "PETH"]
         ], // features used for motion estimation each iteration. Choose from "Waveform", "AutoCorr", "ISI", "PETH"
@@ -42,13 +47,11 @@
     // parameters for clustering
     "clustering":{
         "max_distance": 100, // um. Unit pairs with distance larger than this value in Y direction will be considered as different clusters 
-        "features": ["Waveform", "AutoCorr", "PETH"], // features used for motion estimation. Choose from "Waveform", "AutoCorr", "ISI", "PETH" 
+        "features": ["Waveform", "AutoCorr"], // features used for motion estimation. Choose from "Waveform", "AutoCorr", "ISI", "PETH" 
         "n_iter": 10 // number of iterations for the clustering algorithm 
     },
 
     "autoCuration":{
-        "reject_threshold": 0.1, // atanh() transform of the correlation coefficient. Good clusters should have all pair-wise similarity larger than this threshold 
-        "auto_split": true, // whether to split the clusters automatically 
-        "auto_merge": false // whether to merge the clusters automatically 
+        "auto_split": true // whether to split the clusters automatically 
     }
 }

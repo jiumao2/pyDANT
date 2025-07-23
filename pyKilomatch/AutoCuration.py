@@ -39,11 +39,10 @@ def autoCuration(user_settings):
     leafOrder = clustering_result['leafOrder']
 
     # Initialize the curation
-    curation_type_names = ['Removal_SameSession', 'Removal_LowSimilarity', 'Merge_Cluster', 'Merge_Unit']
+    curation_type_names = ['Removal_SameSession', 'Removal_LowSimilarity']
     curation_pairs = []
     curation_types = []
     num_removal = 0
-    num_merge = 0
 
     # Initialize parameters
     reject_thres = user_settings['autoCuration']['reject_threshold']
@@ -153,165 +152,6 @@ def autoCuration(user_settings):
     print(f'{num_removal} deleting steps are done!')
     print(f'{n_cluster} clusters and {int((np.sum(hdbscan_matrix) - hdbscan_matrix.shape[0])/2)} pairs after removing bad units!')
 
-    # merge when two or more adjacent clusters are similar and do not contain units from the same sessions
-    if user_settings['autoCuration']['auto_merge']:
-        # compute the location of each clusters
-        hdbscan_matrix_raw = hdbscan_matrix.copy()
-        cluster_centers = np.zeros(n_cluster)
-        for k in range(1, n_cluster+1):
-            units = np.where(idx_cluster_hdbscan == k)[0]
-            temp = np.array([np.where(leafOrder == x)[0][0] for x in units])
-            cluster_centers[k-1] = np.median(temp)
-        cluster_id_sorted = np.argsort(cluster_centers)
-        
-        flag = True
-        while flag:
-            similar_pairs = []  # idA, idB, similarity
-            flag = False
-            for k in range(len(cluster_id_sorted)-1):
-                id = cluster_id_sorted[k]
-                units = np.where(idx_cluster_hdbscan == id)[0]
-                sessions_this = sessions[units]
-                
-                id_next = cluster_id_sorted[k+1]
-                units_next = np.where(idx_cluster_hdbscan == id_next)[0]
-                sessions_next = sessions[units_next]
-                
-                if len(np.intersect1d(sessions_this, sessions_next)) > 0:
-                    continue
-                    
-                if np.any(similarity_matrix[np.ix_(units, units_next)] < reject_thres):
-                    continue
-                    
-                if not np.any(good_matches_matrix[np.ix_(units, units_next)] > 0):
-                    continue
-                    
-                similar_pairs.append([k, k+1, np.median(similarity_matrix[np.ix_(units, units_next)])])
-            
-            if len(similar_pairs) > 0:
-                print(f'Found {sum([1 for x in similar_pairs if x[2] > reject_thres])} possible merges!')
-        
-            # merging
-            for k in range(len(similar_pairs)):
-                if similar_pairs[k][2] <= reject_thres:
-                    continue
-                
-                if k < len(similar_pairs)-1 and \
-                        similar_pairs[k+1][0] == similar_pairs[k][1] and \
-                        similar_pairs[k+1][2] > similar_pairs[k][2]:
-                    continue
-                    
-                flag = True
-        
-                id = cluster_id_sorted[similar_pairs[k][0]]
-                id_next = cluster_id_sorted[similar_pairs[k][1]]
-
-                # update curation pairs and types
-                units1 = np.where(idx_cluster_hdbscan == id)[0]
-                units2 = np.where(idx_cluster_hdbscan == id_next)[0]
-                for j in range(len(units1)):
-                    for i in range(len(units2)):
-                        pair_this = np.sort([units1[j], units2[i]])
-                        curation_pairs.append(pair_this)
-                        curation_types.append(3)
-
-                idx_cluster_hdbscan[idx_cluster_hdbscan == id_next] = id
-            
-            # update cluster info
-            max_id = np.max(idx_cluster_hdbscan)
-            for k in range(max_id, 0, -1):
-                units = np.where(idx_cluster_hdbscan == k)[0]
-                if len(units) == 0:
-                    idx_cluster_hdbscan[idx_cluster_hdbscan >= k] -= 1
-            
-            n_cluster = np.max(idx_cluster_hdbscan)
-            assert len(np.unique(idx_cluster_hdbscan)) == n_cluster+1
-        
-            # update cluster centers
-            cluster_centers = np.zeros(n_cluster)
-            for k in range(1, n_cluster+1):
-                units = np.where(idx_cluster_hdbscan == k)[0]
-                temp = np.array([np.where(leafOrder == x)[0][0] for x in units])
-                cluster_centers[k-1] = np.median(temp)
-            cluster_id_sorted = np.argsort(cluster_centers)
-        
-        # update hdbscan matrix
-        hdbscan_matrix = np.zeros_like(similarity_matrix, dtype=bool)
-        for k in range(1, n_cluster+1):
-            idx = np.where(idx_cluster_hdbscan == k)[0]
-            for j in range(len(idx)):
-                for i in range(j+1, len(idx)):
-                    hdbscan_matrix[idx[j], idx[i]] = True
-                    hdbscan_matrix[idx[i], idx[j]] = True
-        np.fill_diagonal(hdbscan_matrix, True)
-        
-        num_same, num_before, num_after = graphEditNumber(hdbscan_matrix_raw, hdbscan_matrix)
-        assert num_same == num_before
-        
-        num_merge = num_after - num_before
-        print(f'{num_merge} merging steps are done!')
-        print(f'{n_cluster} clusters and {int((np.sum(hdbscan_matrix) - hdbscan_matrix.shape[0])/2)} pairs after merging good clusters!')
-        
-        # find possible pairings for unpaired units
-        print('Checking the unpaired units!')
-        
-        count_merges = 0
-        
-        n_cluster_new = n_cluster
-        flag_match = True
-        
-        while flag_match:
-            flag_match = False
-            idx_unpaired = np.where(idx_cluster_hdbscan == -1)[0]
-            for k in range(len(idx_unpaired)):
-                unit = idx_unpaired[k]
-                session_this = sessions[unit]
-            
-                idx_match = np.where(good_matches_matrix[unit,:] == 1)[0]
-        
-                if len(idx_match) == 0:
-                    continue
-                
-                temp = np.argmax(similarity_matrix[k, idx_match])
-                idx_match = idx_match[temp]
-                idx_cluster_new = idx_cluster_hdbscan[idx_match]
-                
-                if idx_cluster_new == -1:
-                    continue
-                if np.any(session_this == sessions[idx_cluster_hdbscan == idx_cluster_new]):
-                    continue
-                
-                flag_match = True
-                count_merges += 1
-                num_merge += 1
-
-                # update curation pairs and types
-
-                units1 = np.where(idx_cluster_hdbscan == idx_cluster_new)[0]
-                for j in range(len(units1)):
-                    pair_this = np.sort([units1[j], unit])
-                    curation_pairs.append(pair_this)
-                    curation_types.append(4)
-
-                idx_cluster_hdbscan[unit] = idx_cluster_new
-        
-        n_cluster = n_cluster_new
-        print(f'Merged {count_merges} unpaired units!')
-        
-        # update hdbscan matrix
-        hdbscan_matrix = np.zeros_like(similarity_matrix, dtype=bool)
-        for k in range(1, n_cluster+1):
-            idx = np.where(idx_cluster_hdbscan == k)[0]
-            for j in range(len(idx)):
-                for i in range(j+1, len(idx)):
-                    hdbscan_matrix[idx[j], idx[i]] = True
-                    hdbscan_matrix[idx[i], idx[j]] = True
-        np.fill_diagonal(hdbscan_matrix, True)
-        
-        print(f'{n_cluster} clusters and {int((np.sum(hdbscan_matrix) - hdbscan_matrix.shape[0])/2)} pairs after merging good unpaired units!')
-    
-
-
     # Save curated results
     hdbscan_matrix_curated = hdbscan_matrix.copy()
     idx_cluster_hdbscan_curated = idx_cluster_hdbscan.copy()
@@ -333,8 +173,7 @@ def autoCuration(user_settings):
                 similarity_matrix=similarity_matrix,
                 sessions=sessions,
                 leafOrder=leafOrder,
-                num_removal=num_removal,
-                num_merge=num_merge)
+                num_removal=num_removal)
 
     # Save final output
     np.save(os.path.join(output_folder, 'ClusterMatrix.npy'), hdbscan_matrix_curated)

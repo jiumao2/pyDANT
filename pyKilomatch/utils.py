@@ -145,3 +145,61 @@ def waveformEstimation(waveform_mean, location, channel_locations, location_new)
     
     return waveform_out
 
+def corrcoef2(x, y):
+    '''Compute the Pearson correlation coefficient between two matrices x and y.
+
+    Arguments:
+        - x: 2D array of shape (n_samples, n_features_x)
+        - y: 2D array of shape (n_samples, n_features_y)
+
+    Returns:
+        - r: Pearson correlation coefficient matrix of shape (n_features_x, n_features_y)
+    '''
+
+    x = (x - x.mean(axis=0))/x.std(axis=0)
+    y = (y - y.mean(axis=0))/y.std(axis=0)
+
+    r = np.dot(x.T, y) / x.shape[0]
+    return r
+
+def computeAutoCorr(spike_times, window, binwidth):
+    '''Compute the autocorrelation of spike times.
+    
+    Refer to the elegant Python impletantation from phylib:
+        https://github.com/cortex-lab/phylib/blob/master/phylib/stats/ccg.py#L34
+
+    Arguments:
+        - spike_times: 1D array of spike times
+        - window: time window for autocorrelation (in ms, default: 300 ms)
+        - binwidth: width of the bins for histogram (in ms, default: 1 ms)
+
+    Returns:
+        - auto_corr: autocorrelation values
+        - lag: lag values
+    '''
+    
+    n_bins = np.floor(window/binwidth)+1
+    auto_corr_right = np.zeros(n_bins)  # the right side of auto_corr
+
+    shift = 1
+    while True:
+        dt = spike_times[shift:] - spike_times[:-shift]
+        i_bin = np.int64(dt / binwidth) + 1
+        i_bin = i_bin[i_bin <= n_bins]
+
+        if i_bin.size == 0:
+            break
+
+        counts = np.bincount(i_bin)
+
+        auto_corr_right[:len(counts)] += counts
+
+        shift += 1
+
+    auto_corr = np.concatenate((np.flip(auto_corr_right[1:]), auto_corr_right))
+    lag = np.arange(-(n_bins-1)*binwidth, (n_bins)*binwidth, binwidth)
+
+    assert(len(auto_corr) == len(lag))
+    assert(np.sum(lag==0) > 0)
+
+    return auto_corr, lag
