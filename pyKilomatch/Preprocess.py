@@ -44,13 +44,13 @@ def preprocess(user_settings):
 
     # make a folder to store the data
     output_folder = user_settings["output_folder"]
-    if not os.path.exists(output_folder):
+    if not os.path.isdir(output_folder):
         os.makedirs(output_folder)
     print(f'The output will be saved to {output_folder}!')
 
     # make a folder to store the figures
     figures_folder = os.path.join(output_folder, 'Figures')
-    if not os.path.exists(figures_folder):
+    if not os.path.isdir(figures_folder):
         os.makedirs(figures_folder)
 
     # validate the data

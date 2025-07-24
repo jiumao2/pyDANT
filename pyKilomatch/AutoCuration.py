@@ -165,16 +165,6 @@ def autoCuration(user_settings):
 
     matched_pairs_curated = np.array(matched_pairs_curated)
 
-    if user_settings['save_intermediate_results']:
-        np.savez(os.path.join(output_folder, 'CurationResults.npz'),
-                hdbscan_matrix_curated=hdbscan_matrix_curated,
-                idx_cluster_hdbscan_curated=idx_cluster_hdbscan_curated,
-                matched_pairs_curated=matched_pairs_curated,
-                similarity_matrix=similarity_matrix,
-                sessions=sessions,
-                leafOrder=leafOrder,
-                num_removal=num_removal)
-
     # Save final output
     np.save(os.path.join(output_folder, 'ClusterMatrix.npy'), hdbscan_matrix_curated)
     np.save(os.path.join(output_folder, 'IdxCluster.npy'), idx_cluster_hdbscan_curated)

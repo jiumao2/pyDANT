@@ -67,9 +67,6 @@ def computeMotion(user_settings):
     # Get all the good pairs and their distance
     depth = np.zeros(len(idx_good))
     dy = np.zeros(len(idx_good))
-    idx_1 = np.zeros(len(idx_good), dtype=int)
-    idx_2 = np.zeros(len(idx_good), dtype=int)
-
     for k in range(len(idx_good)):
         unit1 = idx_unit_pairs[idx_good[k], 0]
         unit2 = idx_unit_pairs[idx_good[k], 1]
@@ -79,9 +76,6 @@ def computeMotion(user_settings):
     # Compute the motion and 95CI
     n_boot = 100
     linear_scale = 0.001
-
-    if len(np.unique(np.concatenate((idx_1, idx_2)))) != n_session:
-        print('Some sessions are not included! Motion estimation failed!')
 
     motion = Motion(num_sessions=n_session)
     if user_settings['waveformCorrection']['linear_correction']:
@@ -165,16 +159,16 @@ def computeMotion(user_settings):
     min_motion_ci95 = np.zeros((2, n_session))
     max_motion_ci95 = np.zeros((2, n_session))
     for j in range(n_session):
-        mean_motion_ci95[0,j] = np.percentile([p[j] for p in p_boot[0]], 2.5)
-        mean_motion_ci95[1,j] = np.percentile([p[j] for p in p_boot[0]], 97.5)
+        mean_motion_ci95[0,j] = np.percentile([p_boot[i][0][j] for i in range(n_boot)], 2.5)
+        mean_motion_ci95[1,j] = np.percentile([p_boot[i][0][j] for i in range(n_boot)], 97.5)
 
         if p_boot[1][0] is not None:
-            min_motion_ci95[0,j] = np.percentile([p[j] for p in p_boot[1]], 2.5)
-            min_motion_ci95[1,j] = np.percentile([p[j] for p in p_boot[1]], 97.5)
+            min_motion_ci95[0,j] = np.percentile([p_boot[i][1][j] for i in range(n_boot)], 2.5)
+            min_motion_ci95[1,j] = np.percentile([p_boot[i][1][j] for i in range(n_boot)], 97.5)
 
         if p_boot[2][0] is not None:
-            max_motion_ci95[0,j] = np.percentile([p[j] for p in p_boot[2]], 2.5)
-            max_motion_ci95[1,j] = np.percentile([p[j] for p in p_boot[2]], 97.5)
+            max_motion_ci95[0,j] = np.percentile([p_boot[i][2][j] for i in range(n_boot)], 2.5)
+            max_motion_ci95[1,j] = np.percentile([p_boot[i][2][j] for i in range(n_boot)], 97.5)
 
     # plot the motion
     plt.figure(figsize=(5, 5))
