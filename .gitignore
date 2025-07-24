@@ -1,2 +1,7 @@
 __pycache__/
 pyKilomatch.egg-info
+
+site/
+.vscode
+docs/images/*.ai
+docs/images/links
