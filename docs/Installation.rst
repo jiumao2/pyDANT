@@ -4,23 +4,23 @@ Installation
 Install with Anaconda
 -------------------------
 
-It is recommended to install the pyKilomatch package using Anaconda:
+It is recommended to install the pyDANT package using Anaconda:
 
 .. code-block:: bash
 
-    conda create -n pyKilomatch python=3.11
-    conda activate pyKilomatch
-    pip install pyKilomatch
+    conda create -n pyDANT python=3.11
+    conda activate pyDANT
+    pip install pyDANT
     
 
 Install from Python Package Index (PyPI)
 -----------------------------------------
 
-You can install Kilomatch directly from PyPI using pip:
+You can install pyDANT directly from PyPI using pip:
 
 .. code-block:: bash
 
-    pip install pyKilomatch
+    pip install pyDANT
 
 Install from Source
 -------------------------
@@ -29,8 +29,8 @@ If you prefer to install from the source code, you can clone the repository and 
 
 .. code-block:: bash
 
-    git clone https://github.com/jiumao2/pyKilomatch.git
-    cd pyKilomatch
+    git clone https://github.com/jiumao2/pyDANT.git
+    cd pyDANT
     pip install -e .
 
 

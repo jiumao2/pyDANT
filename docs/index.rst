@@ -1,4 +1,4 @@
-Welcome to Kilomatch's documentation!
+Welcome to pyDANT's documentation!
 ============================================
 
 .. toctree::

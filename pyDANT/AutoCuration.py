@@ -188,7 +188,7 @@ def autoCuration(user_settings):
     }
 
     np.savez(os.path.join(output_folder, 'Output.npz'), Output)
-    print(f'Kilomatch done! Output saved to {os.path.join(output_folder, "Output.npz")}')
+    print(f'DANT done! Output saved to {os.path.join(output_folder, "Output.npz")}')
     print(f'Found {Output["NumClusters"]} clusters and {len(Output["MatchedPairs"])} matches from {Output["NumUnits"]} units during {Output["NumSession"]} sessions!')
 
 

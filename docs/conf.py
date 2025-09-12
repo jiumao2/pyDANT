@@ -8,7 +8,7 @@
 import sys
 from pathlib import Path
 
-project = 'pyKilomatch'
+project = 'pyDANT'
 copyright = '2025, Yue Huang'
 author = 'Yue Huang'
 

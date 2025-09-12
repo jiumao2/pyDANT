@@ -1,36 +1,36 @@
 API
 ======
 
-pyKilomatch.Preprocess
+pyDANT.Preprocess
 -------------------------
 
-.. automodule:: pyKilomatch.Preprocess
+.. automodule:: pyDANT.Preprocess
     :members:
 
 
-pyKilomatch.ComputeWaveformFeatures
+pyDANT.ComputeWaveformFeatures
 -------------------------------------
 
-.. automodule:: pyKilomatch.ComputeWaveformFeatures
+.. automodule:: pyDANT.ComputeWaveformFeatures
     :members:
 
 
-pyKilomatch.MotionEstimation
+pyDANT.MotionEstimation
 -------------------------------------
 
-.. automodule:: pyKilomatch.MotionEstimation
+.. automodule:: pyDANT.MotionEstimation
     :members:
 
 
-pyKilomatch.IterativeClustering
+pyDANT.IterativeClustering
 -------------------------------------
 
-.. automodule:: pyKilomatch.IterativeClustering
+.. automodule:: pyDANT.IterativeClustering
     :members:
 
 
-pyKilomatch.utils
+pyDANT.utils
 -------------------------------------
 
-.. automodule:: pyKilomatch.utils
+.. automodule:: pyDANT.utils
     :members:

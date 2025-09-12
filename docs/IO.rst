@@ -28,7 +28,7 @@ The output will be saved in the ``output_folder`` specified in ``settings.json``
 Results
 +++++++++++++
 
-This part is the main output of Kilomatch, which contains the estimated cluster IDs for each unit across sessions.
+This part is the main output of pyDANT, which contains the estimated cluster IDs for each unit across sessions.
 
 ``IdxCluster.npy`` assigns a unique cluster ID for each unit (-1 for non-matched units). You can use it to extract the matched units across sessions. 
 
@@ -38,7 +38,7 @@ This part is the main output of Kilomatch, which contains the estimated cluster 
 
 ``RunTimeSec.npy`` contains the total run time in seconds.
 
-``Output.npz`` is a compressed file that contains all the above files and some additional information, such as the number of units, sessions, and clusters. It is designed to mimic the ``Output.mat`` file which is the main output of the MATLAB version of Kilomatch.
+``Output.npz`` is a compressed file that contains all the above files and some additional information, such as the number of units, sessions, and clusters. It is designed to mimic the ``Output.mat`` file which is the main output of the MATLAB version of DANT.
 
 
 

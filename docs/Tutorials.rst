@@ -1,14 +1,14 @@
 Tutorials
 ================
 
-This tutorial provides a step-by-step guide on how to use the Kilomatch package for tracking neurons across sessions. It is designed to help you prepare your data and run the code effectively. You should install Kilomatch correctly before proceeding with this tutorial. If you haven't installed Kilomatch yet, please refer to the :doc:`Installation <Installation>` section.
+This tutorial provides a step-by-step guide on how to use the pyDANT package for tracking neurons across sessions. It is designed to help you prepare your data and run the code effectively. You should install pyDANT correctly before proceeding with this tutorial. If you haven't installed pyDANT yet, please refer to the :doc:`Installation <Installation>` section.
 
 .. _prepare_the_data_label:
 
 Prepare the data
 -----------------------
 
-To use pyKilomatch, your data should be organized in a folder with the following structure:
+To use pyDANT, your data should be organized in a folder with the following structure:
 
 .. code-block::
 
@@ -40,13 +40,13 @@ Crucially, the waveforms used in this analysis must not be whitened, unlike thos
 
 We recommend analyzing data from different brain regions (e.g., cortex and striatum) individually, as they may exhibit distinct drifts and neuronal properties. Please generate a separate ``spikeInfo.mat`` file for each brain region.
 
-- Copy the ``settings.json`` and ``mainKilomatch.py`` files from the Kilomatch package to your data folder. It can be like:
+- Copy the ``settings.json`` and ``mainDANT.py`` files from the pyDANT package to your data folder. It can be like:
 
 .. code-block::
 
     data_folder
     ├── settings.json
-    ├── mainKilomatch.py
+    ├── mainDANT.py
     ├── channel_locations.npy
     ├── waveform_all.npy
     ├── session_index.npy
@@ -61,13 +61,13 @@ We recommend analyzing data from different brain regions (e.g., cortex and stria
 Edit the settings
 -----------------------
 
-To make Kilomatch work, you need to edit the ``settings.json`` file in your data folder. At least, you need to specify the following fields:
+To make DANT work, you need to edit the ``settings.json`` file in your data folder. At least, you need to specify the following fields:
 
 .. code-block:: json
 
     {
         "path_to_data": ".", // path to spikeInfo.mat
-        "output_folder": ".\\kilomatchOutput", // output folder
+        "output_folder": ".\\DANT_Output", // output folder
     }
 
 If you don't want to use PETH feature, you should remove it in the ``motionEstimation`` part and ``clustering`` part. Here is what it looks like after editing:
@@ -94,7 +94,7 @@ and
         "n_iter": 10 // number of iterations for the clustering algorithm
     },
 
-Also, the ``mainKilomatch.py`` file should be edited to specify the path to the Kilomatch package:
+Also, the ``mainDANT.py`` file should be edited to specify the path to the DANT package:
 
 .. code-block:: Python
 
@@ -105,11 +105,11 @@ To learn more about the settings, please refer to the :doc:`Change default setti
 Run the code
 -----------------------
 
-Run ``mainKilomatch.py`` in your Python environment in the terminal or command prompt:
+Run ``mainDANT.py`` in your Python environment in the terminal or command prompt:
 
 .. code-block::
 
-    python mainKilomatch.py
+    python mainDANT.py
 
 
 Hopefully, you will get the tracking results in the output folder specified in the ``settings.json`` file. It can be like:
@@ -118,13 +118,13 @@ Hopefully, you will get the tracking results in the output folder specified in t
 
     data_folder
     ├── settings.json
-    ├── mainKilomatch.py
+    ├── mainDANT.py
     ├── channel_locations.npy
     ├── waveform_all.npy
     ├── session_index.npy
     ├── peth.npy (optional)
     ├── spike_times/
-    └── kilomatchOutput/
+    └── DANT_Output/
         ├── IdxCluster.npy
         ├── ClusterMatrix.npy
         ├── SimilarityMatrix.npy
@@ -137,7 +137,7 @@ Hopefully, you will get the tracking results in the output folder specified in t
 Understand the output
 -----------------------
 
-With some intermediate files, the main output file is located in ``kilomatchOutput`` folder, which contains the following important files:
+With some intermediate files, the main output file is located in ``DANT_Output`` folder, which contains the following important files:
 
 ===========================     =============================               =================
 Field name                      Shape                                       Explanation  

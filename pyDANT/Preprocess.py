@@ -183,7 +183,7 @@ def preprocess(user_settings):
     plt.close()
 
 def spikeInfo2npy(user_settings):
-    """Convert the spikeInfo.mat file from MATLAB to numpy arrays that can be used in pyKilomatch.
+    """Convert the spikeInfo.mat file from MATLAB to numpy arrays that can be used in pyDANT.
 
     Arguments:
         - user_settings (dict): User settings

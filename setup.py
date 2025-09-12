@@ -4,7 +4,7 @@ with open('README.md', 'r', encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
-    name='pyKilomatch',
+    name='pyDANT',
     version='0.0.7',
     packages=find_packages(),
     discription='A Python package for tracking neurons across days',
@@ -12,7 +12,7 @@ setup(
     long_description_content_type='text/markdown',
     author='Yue Huang',
     author_email='yue_huang@pku.edu.cn',
-    url='https://github.com/jiumao2/pyKilomatch',
+    url='https://github.com/jiumao2/pyDANT',
     classifiers=[
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',

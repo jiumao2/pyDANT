@@ -1,4 +1,4 @@
-from pyKilomatch import preprocess, motionEstimation, finalClustering, autoCuration
+from pyDANT import preprocess, motionEstimation, finalClustering, autoCuration
 import hjson
 import time
 import numpy as np

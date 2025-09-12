@@ -1,27 +1,27 @@
-# pyKilomatch
+# pyDANT: A Python toolbox for Density-based Across-day Neuron Tracking
 
-[![View pyKilomatch on GitHub](https://img.shields.io/badge/GitHub-pyKilomatch-blue.svg)](https://github.com/jiumao2/pykilomatch)
-[![Documentation Status](https://app.readthedocs.org/projects/pykilomatch/badge/)](https://pykilomatch.readthedocs.io/en/latest/)
-![PyPI - Version](https://img.shields.io/pypi/v/pykilomatch)
-![GitHub License](https://img.shields.io/github/license/jiumao2/pykilomatch)
+[![View pyDANT on GitHub](https://img.shields.io/badge/GitHub-pyDANT-blue.svg)](https://github.com/jiumao2/pyDANT)
+[![Documentation Status](https://app.readthedocs.org/projects/pydant/badge/)](https://pydant.readthedocs.io/en/latest/)
+![PyPI - Version](https://img.shields.io/pypi/v/pyDANT)
+![GitHub License](https://img.shields.io/github/license/jiumao2/pyDANT)
 
 A Python toolbox for tracking the neurons across days.
 
-This project is a Python implementation of [Kilomatch](https://github.com/jiumao2/Kilomatch), converted from the original MATLAB code. Read the [documentation](https://pykilomatch.readthedocs.io/en/latest/) for more details.
+This project is a Python implementation of [DANT](https://github.com/jiumao2/DANT), converted from the original MATLAB code. Read the [documentation](https://pydant.readthedocs.io/en/latest/) for more details.
 
 ## Installation
 
-- It is recommended to install the pyKilomatch package using Anaconda:
+- It is recommended to install the pyDANT package using Anaconda:
 
 ```bash
-conda create -n pyKilomatch python=3.11
-conda activate pyKilomatch
-pip install pyKilomatch
+conda create -n pyDANT python=3.11
+conda activate pyDANT
+pip install pyDANT
 ```  
 
 ## How to use it
 
-Please follow the [tutorial](https://pykilomatch.readthedocs.io/en/latest/Tutorials.html) to run your dataset.  
+Please follow the [tutorial](https://pydant.readthedocs.io/en/latest/Tutorials.html) to run your dataset.  
 
 Please raise an issue if you meet any bugs or have any questions. We are looking forward to your feedback!
 
