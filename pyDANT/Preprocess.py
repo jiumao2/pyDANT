@@ -120,7 +120,10 @@ def preprocess(user_settings):
             isi_freq = isi_hist / np.sum(isi_hist)
             isi_out = gaussian_filter1d(isi_freq, user_settings['ISI']['gaussian_sigma'])
         
-        return (x,y,z,amp,channel,auto_corr,isi_out,waveforms_centered)
+        if user_settings['centering_waveforms']:
+            return (x,y,z,amp,channel,auto_corr,isi_out,waveforms_centered)
+        else:
+            return (x,y,z,amp,channel,auto_corr,isi_out,None)
 
     # print('Start preprocessing spikeInfo!')
     out = Parallel(n_jobs=user_settings["n_jobs"])(
@@ -150,7 +153,10 @@ def preprocess(user_settings):
     np.save(os.path.join(output_folder, 'auto_corr.npy'), auto_corr)
     np.save(os.path.join(output_folder, 'isi.npy'), isi)
     np.save(os.path.join(output_folder, 'peth.npy'), peth)
-    np.save(os.path.join(output_folder, 'waveforms_centered.npy'), waveforms_centered)
+
+    if user_settings['centering_waveforms']:
+        np.save(os.path.join(output_folder, 'waveforms_centered.npy'), waveforms_centered)
+    
     print('Done!')
 
     # plot the data
