@@ -38,7 +38,7 @@ def computeMotion(user_settings):
 
     idx_out = idx_unit_pairs[:,0] * n_units + idx_unit_pairs[:,1] 
     good_matrix = np.logical_and(similarity_matrix > similarity_thres, cluster_matrix > 0)
-    idx_good = np.where(good_matrix.ravel()[idx_out] == 1)[0]
+    idx_good = np.where(np.logical_and(good_matrix.ravel()[idx_out] == 1, sessions[idx_unit_pairs[:,0]] != sessions[idx_unit_pairs[:,1]]))[0]
 
     similarity = np.zeros(n_pairs)
     for k in range(n_pairs):
@@ -140,7 +140,7 @@ def computeMotion(user_settings):
 
         else:
             def loss_func(params):
-                p = params[session_pairs-1]
+                p = params[session_pairs_this-1]
 
                 return np.sum((np.squeeze(p[:,1] - p[:,0]) - dy_this)**2)
           
@@ -153,7 +153,7 @@ def computeMotion(user_settings):
         return mean_motion_boot, min_motion_boot, max_motion_boot
 
     p_boot = Parallel(n_jobs=user_settings["n_jobs"])(delayed(bootstrap)(dy, session_pairs, n_session) 
-        for j in tqdm(range(n_boot), desc='Computing 95CI'))
+        for _ in tqdm(range(n_boot), desc='Computing 95CI'))
     
     mean_motion_ci95 = np.zeros((2, n_session))
     min_motion_ci95 = np.zeros((2, n_session))
@@ -162,11 +162,9 @@ def computeMotion(user_settings):
         mean_motion_ci95[0,j] = np.percentile([p_boot[i][0][j] for i in range(n_boot)], 2.5)
         mean_motion_ci95[1,j] = np.percentile([p_boot[i][0][j] for i in range(n_boot)], 97.5)
 
-        if p_boot[1][0] is not None:
+        if user_settings['waveformCorrection']['linear_correction']:
             min_motion_ci95[0,j] = np.percentile([p_boot[i][1][j] for i in range(n_boot)], 2.5)
             min_motion_ci95[1,j] = np.percentile([p_boot[i][1][j] for i in range(n_boot)], 97.5)
-
-        if p_boot[2][0] is not None:
             max_motion_ci95[0,j] = np.percentile([p_boot[i][2][j] for i in range(n_boot)], 2.5)
             max_motion_ci95[1,j] = np.percentile([p_boot[i][2][j] for i in range(n_boot)], 97.5)
 
