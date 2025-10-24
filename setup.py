@@ -5,9 +5,9 @@ with open('README.md', 'r', encoding='utf-8') as f:
 
 setup(
     name='pyDANT',
-    version='0.0.7',
+    version='0.0.10',
     packages=find_packages(),
-    discription='A Python package for tracking neurons across days',
+    description='A Python package for tracking neurons across days',
     long_description=long_description,
     long_description_content_type='text/markdown',
     author='Yue Huang',
