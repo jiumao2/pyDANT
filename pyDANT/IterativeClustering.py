@@ -125,6 +125,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
     """
     data_folder = user_settings["path_to_data"]
     output_folder = user_settings["output_folder"]
+    max_similarity = 6; # r = 0.999987
 
     channel_locations = np.load(os.path.join(data_folder, 'channel_locations.npy'))
     isi = np.load(os.path.join(output_folder, 'isi.npy'))
@@ -135,6 +136,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
     waveform_similarity_matrix = np.zeros((n_unit, n_unit))
     if 'Waveform' in feature_names:
         waveform_similarity_matrix = computeWaveformSimilarityMatrix(user_settings, waveforms, channel_locations)
+        waveform_similarity_matrix[waveform_similarity_matrix > max_similarity] = max_similarity
 
     ISI_similarity_matrix = np.zeros((n_unit, n_unit))
     if 'ISI' in feature_names:
@@ -143,6 +145,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
         ISI_similarity_matrix = np.atanh(ISI_similarity_matrix)
         ISI_similarity_matrix = 0.5 * (ISI_similarity_matrix + ISI_similarity_matrix.T) # make it symmetric
         np.fill_diagonal(ISI_similarity_matrix, np.inf)
+        ISI_similarity_matrix[ISI_similarity_matrix > max_similarity] = max_similarity
 
     AutoCorr_similarity_matrix = np.zeros((n_unit, n_unit))
     if 'AutoCorr' in feature_names:
@@ -151,6 +154,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
         AutoCorr_similarity_matrix = np.atanh(AutoCorr_similarity_matrix)
         AutoCorr_similarity_matrix = 0.5 * (AutoCorr_similarity_matrix + AutoCorr_similarity_matrix.T) # make it symmetric
         np.fill_diagonal(AutoCorr_similarity_matrix, np.inf)
+        AutoCorr_similarity_matrix[AutoCorr_similarity_matrix > max_similarity] = max_similarity
 
     PETH_similarity_matrix = np.zeros((n_unit, n_unit))
     if 'PETH' in feature_names:
@@ -159,6 +163,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
         PETH_similarity_matrix = np.atanh(PETH_similarity_matrix)
         PETH_similarity_matrix = 0.5 * (PETH_similarity_matrix + PETH_similarity_matrix.T) # make it symmetric
         np.fill_diagonal(PETH_similarity_matrix, np.inf)
+        PETH_similarity_matrix[PETH_similarity_matrix > max_similarity] = max_similarity
 
     np.save(os.path.join(output_folder, 'waveform_similarity_matrix.npy'), waveform_similarity_matrix)
     np.save(os.path.join(output_folder, 'ISI_similarity_matrix.npy'), ISI_similarity_matrix)
@@ -253,7 +258,7 @@ def iterativeClustering(user_settings, similarity_names, waveforms, motion=None)
         is_matched = np.array([hdbscan_matrix[idx_unit_pairs[k,0], idx_unit_pairs[k,1]] 
                                 for k in range(n_pairs)])
         
-        if iter != user_settings['motionEstimation']['n_iter'] - 1:
+        if iter < user_settings['clustering']['n_iter']:
             # LDA and update weights
             mdl = LinearDiscriminantAnalysis()
             mdl.fit(similarity_all, is_matched)
