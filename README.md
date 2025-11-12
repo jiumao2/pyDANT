@@ -21,7 +21,9 @@ pip install pyDANT
 
 ## How to use it
 
-Please follow the [tutorial](https://pydant.readthedocs.io/en/latest/Tutorials.html) to run your dataset.  
+Example dataset is available [here](https://figshare.com/articles/dataset/Example_Dataset_for_pyDANT/30596303).
+
+Please follow the [tutorial](https://pydant.readthedocs.io/en/latest/Tutorials.html) to run the example dataset or your dataset.
 
 Please raise an issue if you meet any bugs or have any questions. We are looking forward to your feedback!
 

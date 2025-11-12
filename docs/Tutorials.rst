@@ -8,6 +8,8 @@ This tutorial provides a step-by-step guide on how to use the pyDANT package for
 Prepare the data
 -----------------------
 
+Example dataset is available `here <https://figshare.com/articles/dataset/Example_Dataset_for_pyDANT/30596303>`_. You can download it and follow the steps below to run the example dataset. Or you can use your own dataset by following the same steps.
+
 To use pyDANT, your data should be organized in a folder with the following structure:
 
 .. code-block::
