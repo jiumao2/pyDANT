@@ -73,6 +73,5 @@ def computeWaveformFeatures(user_settings, waveform_all, motion):
     for k in range(n_unit):
         waveforms_corrected[k,:,:,:] = out[k]
 
-    # Save the corrected waveforms
-    output_folder = user_settings['output_folder']
-    np.save(os.path.join(output_folder, 'waveforms_corrected.npy'), waveforms_corrected)
+    return waveforms_corrected
+

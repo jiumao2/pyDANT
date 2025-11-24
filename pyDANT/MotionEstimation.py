@@ -194,6 +194,44 @@ def computeMotion(user_settings):
 
     return motion
 
+def initializeMotion(user_settings, waveforms_all):
+    """Initialize the motion of the electrode based on waveform shifts.
+
+    Arguments:
+        - user_settings (dict): User settings
+        - waveforms_all (np.ndarray): All waveforms
+
+    Returns:
+        - Motion: Initialized motion object
+    """
+
+    data_folder = user_settings["path_to_data"]
+    sessions = np.load(os.path.join(data_folder , 'session_index.npy'))
+    n_session = np.max(sessions)
+    motion = Motion(num_sessions=n_session)
+
+    if user_settings['waveformCorrection']['path_to_motion'] == '':
+        waveforms_corrected = waveforms_all
+        return (waveforms_corrected, motion)
+
+    if not os.path.isfile(user_settings['waveformCorrection']['path_to_motion']):
+        raise FileNotFoundError('Path to motion file not found!')
+
+    # load motion from file
+    print('Loading pre-computed motion from file: %s' % user_settings['waveformCorrection']['path_to_motion'])
+    positions = np.load(user_settings['waveformCorrection']['path_to_motion'])
+
+    # check the size of motion
+    if len(positions) != n_session:
+        raise ValueError('The size of motion from file is not correct!')
+
+    # update Motion
+    motion.Constant = positions
+
+    # compute corrected waveforms and save to Waveforms.mat
+    waveforms_corrected = computeWaveformFeatures(user_settings, waveforms_all, motion)
+
+    return (waveforms_corrected, motion)
 
 def motionEstimation(user_settings):
     """Estimate the motion of the electrode and save the results.
@@ -214,17 +252,20 @@ def motionEstimation(user_settings):
     if user_settings['centering_waveforms']:
         waveform_all = np.load(os.path.join(output_folder, 'waveforms_centered.npy'))
     else:
-        waveform_all = np.load(os.path.join(data_folder , 'waveform_all.npy'))
+        waveform_all = np.load(os.path.join(data_folder, 'waveform_all.npy'))
+
+    # Initialize Motion
+    waveforms_corrected, Motion = initializeMotion(user_settings, waveform_all)
 
     similarity_names_all = user_settings['motionEstimation']['features']
     n_iter_motion_estimation = len(similarity_names_all)
     
     for i in range(n_iter_motion_estimation):
-        if i == 0:
-            iterativeClustering(user_settings, similarity_names_all[i], waveform_all)
-        else:
-            waveforms_corrected = np.load(os.path.join(output_folder, 'waveforms_corrected.npy'))
-            iterativeClustering(user_settings, similarity_names_all[i], waveforms_corrected, Motion)
+        iterativeClustering(user_settings, similarity_names_all[i], waveforms_corrected, Motion)
 
         Motion = computeMotion(user_settings)
-        computeWaveformFeatures(user_settings, waveform_all, Motion)
+        waveforms_corrected = computeWaveformFeatures(user_settings, waveform_all, Motion)
+
+    # Save the corrected waveforms
+    output_folder = user_settings['output_folder']
+    np.save(os.path.join(output_folder, 'waveforms_corrected.npy'), waveforms_corrected)

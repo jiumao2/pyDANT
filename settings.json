@@ -3,7 +3,7 @@
     "path_to_data": "path\\to\\data", // path to data
     "output_folder": ".\\DANT_Output", // output folder
     "save_intermediate_results": true, // whether to save the intermediate results 
-    "n_jobs": -1, // number of jobs to run in parallel. -1 means using all processors
+    "n_jobs": -1, // number of parallel jobs. Set to -1 to use all available cores. Set to 1 to disable parallel processing.
 
     "centering_waveforms": false, // whether to center the waveforms before processing. If set to true, the waveforms will be centered to the trough of the waveform according to the peak channel.
 
