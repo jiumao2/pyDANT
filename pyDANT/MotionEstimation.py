@@ -210,7 +210,7 @@ def initializeMotion(user_settings, waveforms_all):
     n_session = np.max(sessions)
     motion = Motion(num_sessions=n_session)
 
-    if user_settings['waveformCorrection']['path_to_motion'] == '':
+    if user_settings['waveformCorrection'].get('path_to_motion', '') == '':
         waveforms_corrected = waveforms_all
         return (waveforms_corrected, motion)
 
