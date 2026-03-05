@@ -2,6 +2,7 @@
 
 [![View pyDANT on GitHub](https://img.shields.io/badge/GitHub-pyDANT-blue.svg)](https://github.com/jiumao2/pyDANT)
 [![Documentation Status](https://app.readthedocs.org/projects/pydant/badge/)](https://pydant.readthedocs.io/en/latest/)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jiumao2/pyDANT/blob/master/pyDANT_demo.ipynb)
 ![PyPI - Version](https://img.shields.io/pypi/v/pyDANT)
 ![GitHub License](https://img.shields.io/github/license/jiumao2/pyDANT)
 
