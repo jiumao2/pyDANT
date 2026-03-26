@@ -1,38 +1,69 @@
 # pyDANT: A Python toolbox for Density-based Across-day Neuron Tracking
 
 [![View pyDANT on GitHub](https://img.shields.io/badge/GitHub-pyDANT-blue.svg)](https://github.com/jiumao2/pyDANT)
-[![Documentation Status](https://app.readthedocs.org/projects/pydant/badge/)](https://pydant.readthedocs.io/en/latest/)
+[![Documentation Status](https://app.readthedocs.org/projects/dant/badge/)](https://dant.readthedocs.io/en/latest/)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jiumao2/pyDANT/blob/master/pyDANT_demo.ipynb)
 ![PyPI - Version](https://img.shields.io/pypi/v/pyDANT)
 ![GitHub License](https://img.shields.io/github/license/jiumao2/pyDANT)
 
-A Python toolbox for tracking the neurons across days with high-density probes.
+**pyDANT** is a Python toolbox designed for the robust, longitudinal tracking of neurons across multiple recording sessions using high-density probes.
 
-Preprint: [Density-based longitudinal neuron tracking in high-density electrophysiological recordings](https://www.biorxiv.org/content/10.64898/2025.12.19.695632v1)
+---
 
-This project is a Python implementation of [DANT](https://github.com/jiumao2/DANT), converted from the original MATLAB code. Read the [documentation](https://pydant.readthedocs.io/en/latest/) for more details.
+### 📄 Preprint
+**[Density-based longitudinal neuron tracking in high-density electrophysiological recordings](https://www.biorxiv.org/content/10.64898/2025.12.19.695632v1)**
+
+📚 **[Read the Documentation](https://dant.readthedocs.io/en/latest/)**
+
+🐍 **[Check out the MATLAB version (DANT)](https://github.com/jiumao2/DANT)**
+
+---
 
 ## Installation
 
-- It is recommended to install the pyDANT package using Anaconda:
+This section describes installation of the pyDANT.
+
+
+### Install with Anaconda
+
+Anaconda is recommended for managing the pyDANT environment.
 
 ```bash
 conda create -n pyDANT python=3.11
 conda activate pyDANT
 pip install pyDANT
-```  
+```
 
-## How to use it
+### Install from Python Package Index (PyPI)
 
-Example dataset is available [here](https://figshare.com/articles/dataset/Example_Dataset_for_pyDANT/30596303).
+You can also install pyDANT directly from PyPI:
 
-Please follow the [tutorial](https://pydant.readthedocs.io/en/latest/Tutorials.html) to run the example dataset or your dataset.
+```bash
+pip install pyDANT
+```
 
-Please raise an issue if you meet any bugs or have any questions. We are looking forward to your feedback!
+## Install from Source
 
-## Citation
+If you prefer to install from source, clone the repository and install it manually:
 
-If you use DANT in your work, please cite:
+```bash
+git clone https://github.com/jiumao2/pyDANT.git
+cd pyDANT
+pip install -e .
+```
+
+## 🚀 Getting Started
+
+To help you get familiar with the pipeline, we have provided an example dataset and a step-by-step walkthrough.
+
+1. **Download the Data:** [Example Dataset for pyDANT (Figshare)](https://figshare.com/articles/dataset/Example_Dataset_for_pyDANT/30596303)
+2. **Run the Pipeline:** Follow our comprehensive [Tutorial](https://dant.readthedocs.io/en/latest/Tutorials_Python.html) to run the example data or process your own recordings.
+
+If you encounter any bugs, have questions, or want to suggest a feature, please [open an issue](https://github.com/jiumao2/pyDANT/issues). We look forward to your feedback!
+
+## 📝 Citation
+
+If you use pyDANT in your research, please cite our preprint:
 
 ```bibtex
 @article {Huang2025DANT,
@@ -44,29 +75,16 @@ If you use DANT in your work, please cite:
     URL = {https://www.biorxiv.org/content/early/2025/12/23/2025.12.19.695632},
     journal = {bioRxiv}
 }
-```
+```  
 
-## References
+## 📚 References & Acknowledgements
 
-> [HDBSCAN](https://scikit-learn.org/stable/modules/clustering.html#hdbscan)  
-> HDBSCAN - Hierarchical Density-Based Spatial Clustering of Applications with Noise. Performs DBSCAN over varying epsilon values and integrates the result to find a clustering that gives the best stability over epsilon. This allows HDBSCAN to find clusters of varying densities (unlike DBSCAN), and be more robust to parameter selection.
-> 
-> Campello, R.J.G.B., Moulavi, D., Sander, J. (2013). Density-Based Clustering Based on Hierarchical Density Estimates. In: Pei, J., Tseng, V.S., Cao, L., Motoda, H., Xu, G. (eds) Advances in Knowledge Discovery and Data Mining. PAKDD 2013. Lecture Notes in Computer Science(), vol 7819. Springer, Berlin, Heidelberg. Density-Based Clustering Based on Hierarchical Density Estimates  
->
-> L. McInnes and J. Healy, (2017). Accelerated Hierarchical Density Based Clustering. In: IEEE International Conference on Data Mining Workshops (ICDMW), 2017, pp. 33-42. Accelerated Hierarchical Density Based Clustering
+pyDANT builds upon and integrates several excellent open-source tools. We extend our gratitude to the authors of the following packages:
 
-> [Kilosort](https://github.com/MouseLand/Kilosort)  
-> Fast spike sorting with drift correction  
-> 
-> Pachitariu, Marius, Shashwat Sridhar, Jacob Pennington, and Carsen Stringer. “Spike Sorting with Kilosort4.” Nature Methods 21, no. 5 (May 2024): 914–21. https://doi.org/10.1038/s41592-024-02232-7.
+* **[HDBSCAN](https://scikit-learn.org/stable/modules/clustering.html#hdbscan):** Hierarchical Density-Based Spatial Clustering of Applications with Noise. (Campello et al., 2013; McInnes & Healy, 2017).
+* **[Kilosort](https://github.com/MouseLand/Kilosort):** Fast spike sorting with drift correction. (Pachitariu et al., 2024).
+* **[DREDge](https://github.com/evarol/DREDge):** Robust online multiband drift estimation in electrophysiology data. (Windolf et al., 2025).
 
-> [DREDge](https://github.com/evarol/DREDge)  
-> Robust online multiband drift estimation in electrophysiology data  
-> 
-> Windolf, Charlie, Han Yu, Angelique C. Paulk, Domokos Meszéna, William Muñoz, Julien Boussard, Richard Hardstone, et al. “DREDge: Robust Motion Correction for High-Density Extracellular Recordings across Species.” Nature Methods, March 6, 2025. https://doi.org/10.1038/s41592-025-02614-5.
-
-
-## License
+## 📄 License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
-
