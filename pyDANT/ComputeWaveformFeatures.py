@@ -40,19 +40,20 @@ def computeWaveformFeatures(user_settings, waveform_all, motion):
 
     min_motion = np.min(np.concatenate((motion_bottom, motion_top)))
     max_motion = np.max(np.concatenate((motion_bottom, motion_top)))
+
+    if n_templates == 1:
+        motion_templates = np.array([0.0])
+    else:
+        motion_templates = np.linspace(min_motion, max_motion, n_templates)
+
     print('The range of motion: [%.1f μm ~ %.1f μm]\n' % (min_motion, max_motion))
 
-    def process_spike(locations_this, motion, channel_locations, waveform_this, session_this, n_templates, min_motion, max_motion):
-
-        motion_this = copy.deepcopy(motion)
+    def process_spike(locations_this, motion, channel_locations, waveform_this, session_this, n_templates, motion_templates):
         waveforms_corrected = np.zeros((n_channel, n_sample, n_templates))
 
         for k in range(n_templates):
-            if n_templates == 2:
-                if k == 0:
-                    motion_this.Constant = motion_this.Constant - min_motion
-                else:
-                    motion_this.Constant = motion_this.Constant - max_motion
+            motion_this = copy.deepcopy(motion)
+            motion_this.Constant = motion_this.Constant - motion_templates[k]
 
             dy = motion_this.get_motion(session_this, locations_this[1])
             location_new = locations_this.copy()
@@ -65,7 +66,7 @@ def computeWaveformFeatures(user_settings, waveform_all, motion):
 
     # Run parallel processing with progress bar
     out = Parallel(n_jobs=user_settings["n_jobs"])(
-        delayed(process_spike)(locations[k,:2], motion, channel_locations, waveform_all[k,:,:], sessions[k], n_templates, min_motion, max_motion) 
+        delayed(process_spike)(locations[k,:2], motion, channel_locations, waveform_all[k,:,:], sessions[k], n_templates, motion_templates) 
         for k in tqdm(range(n_unit), desc='Computing waveform features')
     )
 

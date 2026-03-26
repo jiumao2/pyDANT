@@ -225,6 +225,9 @@ def iterativeClustering(user_settings, similarity_names, waveforms, motion=None)
     weights = np.ones(len(similarity_names))/len(similarity_names)
     similarity_matrix = np.sum(similarity_matrix_all*weights, axis=2)
 
+    # Define weight tolerance for early stopping
+    weight_tol = user_settings['clustering'].get('weight_tol', 1e-8)
+
     for iter in range(1, user_settings['clustering']['n_iter']+1):
         print(f'Iteration {iter} starts!')
 
@@ -259,6 +262,8 @@ def iterativeClustering(user_settings, similarity_names, waveforms, motion=None)
                                 for k in range(n_pairs)])
         
         if iter < user_settings['clustering']['n_iter']:
+            prev_weights = weights # store weights prior to LDA update
+
             # LDA and update weights
             mdl = LinearDiscriminantAnalysis()
             mdl.fit(similarity_all, is_matched)
@@ -271,6 +276,12 @@ def iterativeClustering(user_settings, similarity_names, waveforms, motion=None)
             
             # Update the similarity matrix
             similarity_matrix = np.sum(similarity_matrix_all*weights, axis=2)
+
+            
+            # check convergence criterion for early stopping
+            if np.sum(np.abs(weights - prev_weights)) < weight_tol:
+                print(f'Convergence reached at iteration {iter} (weight change < tol). Stopping early.')
+                break
 
     Z = clusterer.single_linkage_tree_.to_numpy()
     np.save(os.path.join(output_folder, 'DistanceMatrix.npy'), distance_matrix)

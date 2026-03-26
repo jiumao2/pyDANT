@@ -2,6 +2,7 @@ import numpy as np
 from scipy.optimize import minimize
 from joblib import Parallel, delayed
 import os
+import copy
 from tqdm import tqdm
 import matplotlib
 matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
@@ -256,14 +257,49 @@ def motionEstimation(user_settings):
 
     # Initialize Motion
     waveforms_corrected, Motion = initializeMotion(user_settings, waveform_all)
+    initial_motion = copy.deepcopy(Motion)
 
     similarity_names_all = user_settings['motionEstimation']['features']
     n_iter_motion_estimation = len(similarity_names_all)
+    stop_early = user_settings['motionEstimation'].get('stop_early', False)
+    result_iter = []
     
     for i in range(n_iter_motion_estimation):
         iterativeClustering(user_settings, similarity_names_all[i], waveforms_corrected, Motion)
 
+        # Count unique matched unit pairs
+        cluster_matrix = np.load(os.path.join(output_folder, 'ClusterMatrix.npy'))
+        num_matches = np.count_nonzero(np.triu(cluster_matrix, 1))
+        print(f'[Iteration {i + 1}] Found {num_matches} matched unit pairs.')
+
+        # Stop early if the new motion estimate yields fewer or equal matches.
+        if stop_early and i > 0:
+            if num_matches <= result_iter[i - 1]['num_matches']:
+                prev_matches = result_iter[i - 1]['num_matches']
+                print(
+                    f'[Iteration {i + 1}] Match number decreased or stagnated '
+                    f'({prev_matches} to {num_matches})! Motion correction ends now.'
+                )
+
+                if i == 1:
+                    # Revert to initial baseline if the first correction failed.
+                    Motion = copy.deepcopy(initial_motion)
+                    result_iter = []
+                else:
+                    # Revert to the last successful motion state.
+                    Motion = copy.deepcopy(result_iter[i - 2]['motion'])
+                    result_iter = result_iter[:i - 1]
+
+                # Recompute waveforms using the reverted optimal motion.
+                waveforms_corrected = computeWaveformFeatures(user_settings, waveform_all, Motion)
+                break
+
+
         Motion = computeMotion(user_settings)
+        result_iter.append({
+            'num_matches': num_matches,
+            'motion': copy.deepcopy(Motion),
+        })
         waveforms_corrected = computeWaveformFeatures(user_settings, waveform_all, Motion)
 
     # Save the corrected waveforms

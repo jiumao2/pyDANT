@@ -40,14 +40,16 @@
             ["AutoCorr", "PETH"],
             ["Waveform", "AutoCorr", "PETH"],
             ["Waveform", "AutoCorr", "PETH"]
-        ] // features used for motion estimation each iteration. Choose from "Waveform", "AutoCorr", "ISI", "PETH"
+        ], // features used for motion estimation each iteration. Choose from "Waveform", "AutoCorr", "ISI", "PETH"
+        "stop_early": true // whether to terminate the motion estimation loop early if the number of matched unit pairs fails to increase
     },
 
     // parameters for clustering
     "clustering":{
         "max_distance": 100, // um. Unit pairs with distance larger than this value in Y direction will be considered as different clusters 
         "features": ["Waveform", "AutoCorr"], // features used for motion estimation. Choose from "Waveform", "AutoCorr", "ISI", "PETH" 
-        "n_iter": 10 // number of iterations for the clustering algorithm 
+        "n_iter": 10, // max number of iterations for the clustering algorithm
+        "weight_tol": 1e-8 // tolerance for weight change in the clustering algorithm. If the change of weights is smaller than this value, the algorithm will stop
     },
 
     "autoCuration":{
