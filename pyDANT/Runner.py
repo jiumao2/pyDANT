@@ -150,10 +150,12 @@ def merge_multishank_outputs(user_settings, shank_ids, unit_shanks):
     """Merge per-shank pyDANT outputs into root-level global output files.
 
     This function preserves single-shank output file names in the root output folder
-    while keeping all matching and clustering block-diagonal by shank. Local unit
-    indices from each Shank<ID> folder are remapped to original global unit indices
-    using original_unit_indices.npy. Positive cluster IDs are offset across shanks,
-    and -1 remains the unmatched-unit label.
+    while keeping rows and columns in the original global unit order. Per-shank
+    matrices are written back to the global matrix positions for those units, and
+    cross-shank entries are left as uncomputed zero values. Local unit indices from
+    each Shank<ID> folder are remapped to original global unit indices using
+    original_unit_indices.npy. Positive cluster IDs are offset across shanks, and
+    -1 remains the unmatched-unit label.
 
     Arguments:
         - user_settings (dict): User settings
