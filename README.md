@@ -2,11 +2,15 @@
 
 [![View pyDANT on GitHub](https://img.shields.io/badge/GitHub-pyDANT-blue.svg)](https://github.com/jiumao2/pyDANT)
 [![Documentation Status](https://app.readthedocs.org/projects/dant/badge/)](https://dant.readthedocs.io/en/latest/)
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jiumao2/pyDANT/blob/master/pyDANT_demo.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/jiumao2/pyDANT/blob/master/pyDANT_colab_demo.ipynb)
 ![PyPI - Version](https://img.shields.io/pypi/v/pyDANT)
 ![GitHub License](https://img.shields.io/github/license/jiumao2/pyDANT)
 
-**pyDANT** is a Python toolbox designed for the robust, longitudinal tracking of neurons across multiple recording sessions using high-density probes.
+<p align="center">
+  <img src="./Overview.png" alt="DANT graphical abstract" width="600">
+</p>
+
+**pyDANT** is a Python toolbox that combines iterative motion correction and density-based clustering to robustly track single neurons across days of high-density recordings.
 
 ---
 
@@ -15,7 +19,7 @@
 
 📚 **[Read the Documentation](https://dant.readthedocs.io/en/latest/)**
 
-🐍 **[Check out the MATLAB version (DANT)](https://github.com/jiumao2/DANT)**
+🧮 **[Check out the MATLAB version (DANT)](https://github.com/jiumao2/DANT)**
 
 ---
 
