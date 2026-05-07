@@ -1,4 +1,4 @@
-from pyDANT import runDANT
+from pyDANT import runDANTMultiShank
 import hjson
 
 path_settings = r'./settings.json' # It should be the path to your settings.json file
@@ -6,5 +6,4 @@ path_settings = r'./settings.json' # It should be the path to your settings.json
 with open(path_settings, 'r') as f:
     user_settings = hjson.load(f)
 
-runDANT(user_settings)
-
+runDANTMultiShank(user_settings)

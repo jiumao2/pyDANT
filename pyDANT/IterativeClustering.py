@@ -57,20 +57,51 @@ def getNearbyPairs(max_distance, sessions, locations, motion=None):
 
     return idx_unit_pairs, session_pairs
 
-def computeWaveformSimilarityMatrix(user_settings, waveforms, channel_locations):
+def computeWaveformSimilarityMatrix(user_settings, waveforms, channel_locations, channel_shanks=None):
+    """Compute waveform similarity using channel neighborhoods.
+
+    Arguments:
+        - user_settings (dict): User settings
+        - waveforms (ndarray): The waveforms of the units
+        - channel_locations (ndarray): The location of each channel
+        - channel_shanks (ndarray, optional): The shank ID of each channel. If missing,
+          all channels are treated as a single shank.
+
+    Outputs:
+        - waveform_similarity_matrix (ndarray): The waveform similarity matrix of the units
+    """
     # Get waveform features
     n_nearest_channels = user_settings['waveformCorrection']['n_nearest_channels']
     n_unit = waveforms.shape[0]
+    n_channel = channel_locations.shape[0]
 
     if len(waveforms.shape) > 3:
         n_templates = waveforms.shape[3]
     else:
         n_templates = 1
         waveforms = np.expand_dims(waveforms, axis=3)
+
+    if channel_shanks is None:
+        channel_shanks = np.ones(n_channel, dtype=np.int64)
+    else:
+        channel_shanks = np.asarray(channel_shanks).ravel()
+        if len(channel_shanks) != n_channel:
+            raise ValueError('channel_shanks should have one shank ID for each channel!')
     
-    # find k-nearest neighbors for each channel
-    nn = NearestNeighbors(n_neighbors=n_nearest_channels).fit(channel_locations)
-    _, idx_nearest = nn.kneighbors(channel_locations)
+    # find k-nearest neighbors for each channel, restricted within each shank
+    idx_nearest = np.zeros((n_channel, n_nearest_channels), dtype=np.int64)
+    for shank_id in np.unique(channel_shanks):
+        idx_shank = np.where(channel_shanks == shank_id)[0]
+        if len(idx_shank) < n_nearest_channels:
+            raise ValueError(
+                f'Shank {shank_id} has {len(idx_shank)} channels, fewer than '
+                f'waveformCorrection.n_nearest_channels={n_nearest_channels}!'
+            )
+
+        nn = NearestNeighbors(n_neighbors=n_nearest_channels).fit(channel_locations[idx_shank, :])
+        _, idx_nearest_local = nn.kneighbors(channel_locations[idx_shank, :])
+        idx_nearest[idx_shank, :] = idx_shank[idx_nearest_local]
+
     idx_nearest_sorted = np.sort(idx_nearest, axis=1)
     idx_nearest_unique, idx_groups = np.unique(idx_nearest_sorted, axis=0, return_inverse=True)
 
@@ -91,7 +122,7 @@ def computeWaveformSimilarityMatrix(user_settings, waveforms, channel_locations)
             
             # The slice should be done twice to avoid indexing issues (different with MATLAB)
             waveform_this = waveforms[:,:,:,i_template]
-            waveform_this = np.reshape(waveforms[:,idx_nearest_unique[k,:],:], (n_unit, -1))
+            waveform_this = np.reshape(waveform_this[:,idx_nearest_unique[k,:],:], (n_unit, -1))
 
             temp = corrcoef2(waveform_this[idx_units,:].T, waveform_this.T)
             temp[np.isnan(temp)] = 0
@@ -114,6 +145,8 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
         - user_settings (dict): User settings
         - waveforms (ndarray): The waveforms of the units (n_units, n_channels, n_samples)
         - feature_names (list): The names of the features to be computed. The options are 'Waveform', 'ISI', 'AutoCorr', and 'PETH'.
+          If path_to_data/channel_shanks.npy exists, waveform similarity restricts nearest-channel
+          neighborhoods to channels on the same shank.
 
     Outputs:
         - similarity_matrix_all (ndarray): The similarity matrix of the units (n_units, n_units, n_features)
@@ -128,6 +161,10 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
     max_similarity = 6; # r = 0.999987
 
     channel_locations = np.load(os.path.join(data_folder, 'channel_locations.npy'))
+    channel_shanks = None
+    channel_shanks_path = os.path.join(data_folder, 'channel_shanks.npy')
+    if os.path.isfile(channel_shanks_path):
+        channel_shanks = np.load(channel_shanks_path)
     isi = np.load(os.path.join(output_folder, 'isi.npy'))
     auto_corr = np.load(os.path.join(output_folder, 'auto_corr.npy'))
     peth = np.load(os.path.join(output_folder, 'peth.npy'))
@@ -135,7 +172,8 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
 
     waveform_similarity_matrix = np.zeros((n_unit, n_unit))
     if 'Waveform' in feature_names:
-        waveform_similarity_matrix = computeWaveformSimilarityMatrix(user_settings, waveforms, channel_locations)
+        waveform_similarity_matrix = computeWaveformSimilarityMatrix(
+            user_settings, waveforms, channel_locations, channel_shanks)
         waveform_similarity_matrix[waveform_similarity_matrix > max_similarity] = max_similarity
 
     ISI_similarity_matrix = np.zeros((n_unit, n_unit))
