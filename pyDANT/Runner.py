@@ -44,8 +44,9 @@ def runDANTMultiShank(user_settings):
 
     Outputs:
         - output_folder/Shank<ID>/: Per-shank pipeline outputs
-        - output_folder/Output.npz: Merged global output with IdxUnit and IdxShank
-        - output_folder/waveforms_corrected.npy: Corrected waveforms in original unit order
+        - output_folder/: Global preprocessing outputs plus merged clustering, curation,
+          motion, similarity, and corrected waveform files in original unit order.
+        - output_folder/Output.npz: Merged global output with IdxUnit and IdxShank.
         - output_folder/RunTimeSec.npy: Total runtime in seconds
     """
     data_folder = user_settings["path_to_data"]
@@ -146,12 +147,42 @@ def runDANTMultiShank(user_settings):
 
 
 def merge_multishank_outputs(user_settings, shank_ids, unit_shanks):
+    """Merge per-shank pyDANT outputs into root-level global output files.
+
+    This function preserves single-shank output file names in the root output folder
+    while keeping all matching and clustering block-diagonal by shank. Local unit
+    indices from each Shank<ID> folder are remapped to original global unit indices
+    using original_unit_indices.npy. Positive cluster IDs are offset across shanks,
+    and -1 remains the unmatched-unit label.
+
+    Arguments:
+        - user_settings (dict): User settings
+        - shank_ids (ndarray): Shank IDs processed by runDANTMultiShank()
+        - unit_shanks (ndarray): Global unit-level shank IDs
+
+    Outputs:
+        Root output files matching the single-shank pipeline where applicable,
+        including similarity matrices, SimilarityMatrix.npy, SimilarityPairs.npy,
+        DistanceMatrix.npy, ClusterMatrix.npy, IdxCluster.npy, MatchedPairs.npy,
+        Curation*.npy, ClusteringResults.npz, Output.npz, motion*.npy, and
+        waveforms_corrected.npy.
+    """
     data_folder = user_settings["path_to_data"]
     output_folder = user_settings["output_folder"]
 
     sessions = np.load(os.path.join(data_folder, 'session_index.npy'))
     locations = np.load(os.path.join(output_folder, 'locations.npy'))
     n_units = len(unit_shanks)
+    n_features = len(user_settings['clustering']['features'])
+
+    waveform_similarity_matrix = np.zeros((n_units, n_units))
+    isi_similarity_matrix = np.zeros((n_units, n_units))
+    auto_corr_similarity_matrix = np.zeros((n_units, n_units))
+    peth_similarity_matrix = np.zeros((n_units, n_units))
+    distance_matrix = np.zeros((n_units, n_units))
+    hdbscan_matrix = np.zeros((n_units, n_units), dtype=bool)
+    idx_cluster_hdbscan = np.full(n_units, -1, dtype=np.int64)
+    leaf_order = np.empty(0, dtype=np.int64)
 
     output = {
         'NumClusters': 0,
@@ -162,10 +193,10 @@ def merge_multishank_outputs(user_settings, shank_ids, unit_shanks):
         'IdxSort': np.empty(0, dtype=np.int64),
         'IdxCluster': np.full(n_units, -1, dtype=np.int64),
         'SimilarityMatrix': np.zeros((n_units, n_units)),
-        'SimilarityAll': np.empty((0, len(user_settings['clustering']['features']))),
+        'SimilarityAll': np.empty((0, n_features)),
         'SimilarityPairs': np.empty((0, 2), dtype=np.int64),
         'SimilarityNames': user_settings['clustering']['features'],
-        'SimilarityWeights': np.empty((0, len(user_settings['clustering']['features']))),
+        'SimilarityWeights': np.empty((0, n_features)),
         'SimilarityThreshold': np.empty(0),
         'GoodMatchesMatrix': np.zeros((n_units, n_units), dtype=bool),
         'ClusterMatrix': np.zeros((n_units, n_units), dtype=bool),
@@ -181,6 +212,10 @@ def merge_multishank_outputs(user_settings, shank_ids, unit_shanks):
 
     waveforms_corrected = None
     cluster_offset = 0
+    pre_curation_cluster_offset = 0
+    motion_linear_scale = []
+    motion_linear = []
+    motion_constant = []
 
     for shank_id in shank_ids:
         shank_value = np.asarray(shank_id).item()
@@ -201,6 +236,32 @@ def merge_multishank_outputs(user_settings, shank_ids, unit_shanks):
                 raise ValueError(f'Could not find Output in {output_path}!')
 
         clustering = np.load(os.path.join(shank_output_folder, 'ClusteringResults.npz'), allow_pickle=True)
+
+        waveform_similarity_matrix[np.ix_(idx_units, idx_units)] = np.load(
+            os.path.join(shank_output_folder, 'waveform_similarity_matrix.npy')
+        )
+        isi_similarity_matrix[np.ix_(idx_units, idx_units)] = np.load(
+            os.path.join(shank_output_folder, 'ISI_similarity_matrix.npy')
+        )
+        auto_corr_similarity_matrix[np.ix_(idx_units, idx_units)] = np.load(
+            os.path.join(shank_output_folder, 'AutoCorr_similarity_matrix.npy')
+        )
+        peth_similarity_matrix[np.ix_(idx_units, idx_units)] = np.load(
+            os.path.join(shank_output_folder, 'PETH_similarity_matrix.npy')
+        )
+        distance_matrix[np.ix_(idx_units, idx_units)] = clustering['distance_matrix']
+
+        idx_cluster_hdbscan_local = np.asarray(clustering['idx_cluster_hdbscan']).astype(np.int64)
+        idx_cluster_hdbscan_global = idx_cluster_hdbscan_local.copy()
+        idx_pre_matched = idx_cluster_hdbscan_global > 0
+        idx_cluster_hdbscan_global[idx_pre_matched] += pre_curation_cluster_offset
+        idx_cluster_hdbscan[idx_units] = idx_cluster_hdbscan_global
+        hdbscan_matrix[np.ix_(idx_units, idx_units)] = clustering['hdbscan_matrix']
+        leaf_order = np.concatenate((
+            leaf_order,
+            idx_units[np.asarray(clustering['leafOrder']).astype(np.int64)]
+        ))
+        pre_curation_cluster_offset += max(int(clustering['n_cluster']), 0)
 
         idx_cluster_local = np.asarray(local_output['IdxCluster']).astype(np.int64)
         idx_cluster_global = idx_cluster_local.copy()
@@ -280,6 +341,9 @@ def merge_multishank_outputs(user_settings, shank_ids, unit_shanks):
             'Linear': np.load(os.path.join(shank_output_folder, 'motion_linear.npy')),
             'Constant': np.load(os.path.join(shank_output_folder, 'motion_constant.npy')),
         })
+        motion_linear_scale.append(np.load(os.path.join(shank_output_folder, 'motion_linear_scale.npy')))
+        motion_linear.append(np.load(os.path.join(shank_output_folder, 'motion_linear.npy')))
+        motion_constant.append(np.load(os.path.join(shank_output_folder, 'motion_constant.npy')))
 
         waveforms_this = np.load(os.path.join(shank_output_folder, 'waveforms_corrected.npy'))
         if waveforms_corrected is None:
@@ -288,6 +352,38 @@ def merge_multishank_outputs(user_settings, shank_ids, unit_shanks):
 
     output['NumClusters'] = cluster_offset
 
+    np.save(os.path.join(output_folder, 'waveform_similarity_matrix.npy'), waveform_similarity_matrix)
+    np.save(os.path.join(output_folder, 'ISI_similarity_matrix.npy'), isi_similarity_matrix)
+    np.save(os.path.join(output_folder, 'AutoCorr_similarity_matrix.npy'), auto_corr_similarity_matrix)
+    np.save(os.path.join(output_folder, 'PETH_similarity_matrix.npy'), peth_similarity_matrix)
+    np.save(os.path.join(output_folder, 'SimilarityMatrix.npy'), output['SimilarityMatrix'])
+    np.save(os.path.join(output_folder, 'SimilarityWeights.npy'), output['SimilarityWeights'])
+    np.save(os.path.join(output_folder, 'SimilarityThreshold.npy'), output['SimilarityThreshold'])
+    np.save(os.path.join(output_folder, 'SimilarityPairs.npy'), output['SimilarityPairs'])
+    np.save(os.path.join(output_folder, 'DistanceMatrix.npy'), distance_matrix)
+    np.save(os.path.join(output_folder, 'ClusterMatrix.npy'), output['ClusterMatrix'])
+    np.save(os.path.join(output_folder, 'IdxCluster.npy'), output['IdxCluster'])
+    np.save(os.path.join(output_folder, 'MatchedPairs.npy'), output['MatchedPairs'])
+    np.save(os.path.join(output_folder, 'CurationPairs.npy'), output['CurationPairs'])
+    np.save(os.path.join(output_folder, 'CurationTypes.npy'), output['CurationTypes'])
+    np.save(os.path.join(output_folder, 'CurationTypeNames.npy'), output['CurationTypeNames'])
+    np.save(os.path.join(output_folder, 'motion_linear_scale.npy'), np.asarray(motion_linear_scale))
+    np.save(os.path.join(output_folder, 'motion_linear.npy'), np.asarray(motion_linear))
+    np.save(os.path.join(output_folder, 'motion_constant.npy'), np.asarray(motion_constant))
+    np.savez(
+        os.path.join(output_folder, 'ClusteringResults.npz'),
+        weights=output['SimilarityWeights'],
+        similarity_all=output['SimilarityAll'],
+        idx_unit_pairs=output['SimilarityPairs'],
+        thres=output['SimilarityThreshold'],
+        good_matches_matrix=output['GoodMatchesMatrix'],
+        similarity_matrix=output['SimilarityMatrix'],
+        distance_matrix=distance_matrix,
+        leafOrder=leaf_order,
+        idx_cluster_hdbscan=idx_cluster_hdbscan,
+        hdbscan_matrix=hdbscan_matrix,
+        n_cluster=pre_curation_cluster_offset
+    )
     np.savez(os.path.join(output_folder, 'Output.npz'), output)
     if waveforms_corrected is not None:
         np.save(os.path.join(output_folder, 'waveforms_corrected.npy'), waveforms_corrected)
