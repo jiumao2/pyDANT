@@ -58,10 +58,10 @@ pip install -e .
 
 ## 🚀 Getting Started
 
-To help you get familiar with the pipeline, we have provided an example dataset and a step-by-step walkthrough.
+To help you get familiar with the pipeline, we provide two tutorials.
 
-1. **Download the Data:** [Example Dataset for pyDANT (Figshare)](https://figshare.com/articles/dataset/Example_Dataset_for_pyDANT/30596303)
-2. **Run the Pipeline:** Follow our comprehensive [Tutorial](https://dant.readthedocs.io/en/latest/Tutorials_Python.html) to run the example data or process your own recordings.
+1. **Colab Tutorial:** Open the [pyDANT Colab demo](https://colab.research.google.com/github/jiumao2/pyDANT/blob/master/pyDANT_colab_demo.ipynb) to run pyDANT in a browser without local setup or pre-downloading data.
+2. **Documentation Tutorial:** Download the [example dataset for pyDANT](https://figshare.com/articles/dataset/Example_Dataset_for_pyDANT/30596303), then follow the [Python tutorial](https://dant.readthedocs.io/en/latest/Tutorials_Python.html) to run pyDANT locally or process your own recordings.
 
 If you encounter any bugs, have questions, or want to suggest a feature, please [open an issue](https://github.com/jiumao2/pyDANT/issues). We look forward to your feedback!
 
