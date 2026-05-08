@@ -78,6 +78,12 @@ def preprocess(user_settings):
 
     print(n_session, 'sessions found!')
 
+    motion_features = [
+        feature
+        for feature_set in user_settings['motionEstimation']['features']
+        for feature in feature_set
+    ]
+
     # preprocessing data
     def process_spike_info(waveform, spike_times):
         # compute the location of each unit
@@ -118,7 +124,7 @@ def preprocess(user_settings):
 
         # compute the autocorrelogram feauture
         auto_corr = None
-        if "AutoCorr" in user_settings['motionEstimation']['features'] or \
+        if "AutoCorr" in motion_features or \
                 "AutoCorr" in user_settings['clustering']['features']:
             window = user_settings['autoCorr']['window']  # ms
             binwidth = user_settings['autoCorr']['binwidth']  # ms
@@ -131,7 +137,7 @@ def preprocess(user_settings):
 
         # compute the ISI feature
         isi_out = None
-        if "ISI" in user_settings['motionEstimation']['features'] or \
+        if "ISI" in motion_features or \
                 "ISI" in user_settings['clustering']['features']:
             isi = np.diff(spike_times)
             isi_hist = np.histogram(isi, bins=np.arange(0, user_settings['ISI']['window'], user_settings['ISI']['binwidth']))[0]

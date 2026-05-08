@@ -234,6 +234,42 @@ def initializeMotion(user_settings, waveforms_all):
 
     return (waveforms_corrected, motion)
 
+def getMotionFeatureSets(user_settings):
+    """Resolve feature sets and iteration cap for motion estimation.
+
+    Reads the motionEstimation section of user_settings and determines how many
+    motion-estimation iterations should be attempted. Legacy settings are
+    preserved by default. If repeat_last_feature_set is true, the motion loop can
+    continue beyond the explicitly listed feature sets by reusing the final set
+    until max_iter is reached or stop_early terminates the loop.
+
+    Arguments:
+        - user_settings (dict): User settings
+
+    Returns:
+        - similarity_names_all (list): Feature sets from motionEstimation.features
+        - n_iter_motion_estimation (int): Maximum number of iterations to attempt
+    """
+    similarity_names_all = user_settings['motionEstimation']['features']
+    n_feature_sets = len(similarity_names_all)
+
+    repeat_last_feature_set = user_settings['motionEstimation'].get(
+        'repeat_last_feature_set', False)
+
+    if 'max_iter' in user_settings['motionEstimation']:
+        max_iter = user_settings['motionEstimation']['max_iter']
+    elif repeat_last_feature_set:
+        max_iter = 15
+    else:
+        max_iter = n_feature_sets
+
+    if repeat_last_feature_set:
+        n_iter_motion_estimation = max_iter
+    else:
+        n_iter_motion_estimation = min(max_iter, n_feature_sets)
+
+    return similarity_names_all, n_iter_motion_estimation
+
 def motionEstimation(user_settings):
     """Estimate the motion of the electrode and save the results.
     Compute the features of each unit and do clustering the find the matching units.
@@ -259,13 +295,13 @@ def motionEstimation(user_settings):
     waveforms_corrected, Motion = initializeMotion(user_settings, waveform_all)
     initial_motion = copy.deepcopy(Motion)
 
-    similarity_names_all = user_settings['motionEstimation']['features']
-    n_iter_motion_estimation = len(similarity_names_all)
+    similarity_names_all, n_iter_motion_estimation = getMotionFeatureSets(user_settings)
     stop_early = user_settings['motionEstimation'].get('stop_early', False)
     result_iter = []
     
     for i in range(n_iter_motion_estimation):
-        iterativeClustering(user_settings, similarity_names_all[i], waveforms_corrected, Motion)
+        idx_feature_set = min(i, len(similarity_names_all) - 1)
+        iterativeClustering(user_settings, similarity_names_all[idx_feature_set], waveforms_corrected, Motion)
 
         # Count unique matched unit pairs
         cluster_matrix = np.load(os.path.join(output_folder, 'ClusterMatrix.npy'))
