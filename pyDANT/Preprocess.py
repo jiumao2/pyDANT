@@ -236,31 +236,30 @@ def spikeInfo2npy(user_settings):
     # load the data
     data_folder = user_settings["path_to_data"]
     print('Loading', os.path.join(data_folder, 'spikeInfo.mat'), '...')
-    spikeInfo = h5py.File(os.path.join(data_folder, 'spikeInfo.mat'))
+    with h5py.File(os.path.join(data_folder, 'spikeInfo.mat'), 'r') as spikeInfo:
+        # make a folder to store the data
+        data_folder = user_settings["path_to_data"]
 
-    # make a folder to store the data
-    data_folder = user_settings["path_to_data"]
+        # Preprocess the spikeInfo
+        n_unit = len(spikeInfo['spikeInfo']['RatName'])
+        keys = spikeInfo['spikeInfo'].keys()
 
-    # Preprocess the spikeInfo
-    n_unit = len(spikeInfo['spikeInfo']['RatName'])
-    keys = spikeInfo['spikeInfo'].keys()
+        Kcoords = np.array(spikeInfo[spikeInfo['spikeInfo']['Kcoords'][0][0]][0])
+        Xcoords = np.array(spikeInfo[spikeInfo['spikeInfo']['Xcoords'][0][0]][0])
+        Ycoords = np.array(spikeInfo[spikeInfo['spikeInfo']['Ycoords'][0][0]][0])
+        SpikeTimes = [
+            np.squeeze(
+                np.array(spikeInfo[spikeInfo['spikeInfo']['SpikeTimes'][k][0]])) for k in range(n_unit)]
+        SessionIndex = np.array([np.array(spikeInfo[spikeInfo['spikeInfo']['SessionIndex'][k][0]][0][0]) for k in range(n_unit)],
+            dtype=np.int64)
+        Waveform = [np.transpose(np.array(
+            spikeInfo[spikeInfo['spikeInfo']['Waveform'][k][0]])) for k in range(n_unit)]
 
-    Kcoords = np.array(spikeInfo[spikeInfo['spikeInfo']['Kcoords'][0][0]][0])
-    Xcoords = np.array(spikeInfo[spikeInfo['spikeInfo']['Xcoords'][0][0]][0])
-    Ycoords = np.array(spikeInfo[spikeInfo['spikeInfo']['Ycoords'][0][0]][0])
-    SpikeTimes = [
-        np.squeeze(
-            np.array(spikeInfo[spikeInfo['spikeInfo']['SpikeTimes'][k][0]])) for k in range(n_unit)]
-    SessionIndex = np.array([np.array(spikeInfo[spikeInfo['spikeInfo']['SessionIndex'][k][0]][0][0]) for k in range(n_unit)],
-        dtype=np.int64)
-    Waveform = [np.transpose(np.array(
-        spikeInfo[spikeInfo['spikeInfo']['Waveform'][k][0]])) for k in range(n_unit)]
-
-    PETH = None
-    if "PETH" in keys:
-        PETH = [np.squeeze(
-            np.array(
-                spikeInfo[spikeInfo['spikeInfo']['PETH'][k][0]])) for k in range(n_unit)]
+        PETH = None
+        if "PETH" in keys:
+            PETH = [np.squeeze(
+                np.array(
+                    spikeInfo[spikeInfo['spikeInfo']['PETH'][k][0]])) for k in range(n_unit)]
 
     # validate the data
     n_session = np.max(SessionIndex)
