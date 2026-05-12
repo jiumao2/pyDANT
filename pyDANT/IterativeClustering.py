@@ -335,6 +335,7 @@ def iterativeClustering(user_settings, similarity_names, waveforms, motion=None)
     # plot the distribution of similarity
     n_plots = len(similarity_names)
     fig, axes = plt.subplots(1, n_plots, figsize=(5*n_plots, 5))
+    axes = np.atleast_1d(axes)
     for k in range(n_plots):
         axes[k].hist(similarity_all[:, k], bins=50, color='blue', density=True)
         axes[k].set_title(similarity_names[k])
