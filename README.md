@@ -1,4 +1,4 @@
-# pyDANT: A Python toolbox for Density-based Across-day Neuron Tracking
+﻿# pyDANT: A Python toolbox for Density-based Across-day Neuron Tracking
 
 [![View pyDANT on GitHub](https://img.shields.io/badge/GitHub-pyDANT-blue.svg)](https://github.com/jiumao2/pyDANT)
 [![Documentation Status](https://app.readthedocs.org/projects/dant/badge/)](https://dant.readthedocs.io/en/latest/)
@@ -14,8 +14,8 @@
 
 ---
 
-### 📄 Preprint
-**[Density-based longitudinal neuron tracking in high-density electrophysiological recordings](https://www.biorxiv.org/content/10.64898/2025.12.19.695632v1)**
+### 📄 Published article
+**[Density-based longitudinal neuron tracking in high-density electrophysiological recordings](https://doi.org/10.1016/j.patter.2026.101590)**
 
 📚 **[Read the Documentation](https://dant.readthedocs.io/en/latest/)**
 
@@ -23,9 +23,9 @@
 
 ---
 
-## Installation
+## ⚙️ Installation
 
-This section describes installation of the pyDANT.
+This section describes how to install pyDANT.
 
 
 ### Install with Anaconda
@@ -46,7 +46,7 @@ You can also install pyDANT directly from PyPI:
 pip install pyDANT
 ```
 
-## Install from Source
+### Install from Source
 
 If you prefer to install from source, clone the repository and install it manually:
 
@@ -67,17 +67,17 @@ If you encounter any bugs, have questions, or want to suggest a feature, please 
 
 ## 📝 Citation
 
-If you use pyDANT in your research, please cite our preprint:
+If you use pyDANT in your research, please cite our article:
 
 ```bibtex
-@article {Huang2025DANT,
+@article{Huang2026DANT,
     author = {Huang, Yue and Wang, Hanbo and Cao, Jiaming and Chen, Yu and Wang, Xuanning and Zhao, Yujie and Ren, Hengkun and Zheng, Qiang and Yu, Jianing},
     title = {Density-based longitudinal neuron tracking in high-density electrophysiological recordings},
-    year = {2025},
-    doi = {10.64898/2025.12.19.695632},
-    publisher = {Cold Spring Harbor Laboratory},
-    URL = {https://www.biorxiv.org/content/early/2025/12/23/2025.12.19.695632},
-    journal = {bioRxiv}
+    journal = {Patterns},
+    year = {2026},
+    doi = {10.1016/j.patter.2026.101590},
+    url = {https://doi.org/10.1016/j.patter.2026.101590},
+    note = {Available online 17 June 2026}
 }
 ```  
 
@@ -92,3 +92,11 @@ pyDANT builds upon and integrates several excellent open-source tools. We extend
 ## 📄 License
 
 This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+
+
+
+
+
+
+
+
