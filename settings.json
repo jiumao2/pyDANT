@@ -18,7 +18,7 @@
         "n_nearest_channels": 38, // number of channels used for similarity calculation
         "linear_correction": false, // whether to do linear correction on motion estimation
         "n_templates": 2, // number of templates used for waveform correction. Should be 1 or 2 
-        "path_to_motion": "" // path to a pre-computed motion .npy file. If set, the first motionEstimation.features entry must include "Waveform". If empty, motion will be estimated from the data.
+        "path_to_motion": "" // path to a user-provided motion .npy file. If set, the first motionEstimation.features entry must include "Waveform". If empty, motion will be estimated from the data.
     },
 
     // autocorrelogram similarity related parameters
