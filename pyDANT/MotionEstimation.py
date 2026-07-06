@@ -211,23 +211,55 @@ def initializeMotion(user_settings, waveforms_all):
     n_session = np.max(sessions)
     motion = Motion(num_sessions=n_session)
 
-    if user_settings['waveformCorrection'].get('path_to_motion', '') == '':
+    path_to_motion = user_settings['waveformCorrection'].get('path_to_motion', '')
+    if path_to_motion == '':
         waveforms_corrected = waveforms_all
         return (waveforms_corrected, motion)
 
-    if not os.path.isfile(user_settings['waveformCorrection']['path_to_motion']):
-        raise FileNotFoundError('Path to motion file not found!')
+    first_feature_set = user_settings['motionEstimation']['features'][0]
+    if isinstance(first_feature_set, str):
+        first_feature_set = [first_feature_set]
+    if not any(feature.lower() == 'waveform' for feature in first_feature_set):
+        raise ValueError(
+            'When waveformCorrection.path_to_motion is set, the first '
+            'motionEstimation.features entry must include "Waveform"; otherwise '
+            'the manually provided motion is not used during the first '
+            'motion-correction clustering round.'
+        )
+
+    if not os.path.isfile(path_to_motion):
+        raise FileNotFoundError(f'Path to motion file not found: {path_to_motion}')
 
     # load motion from file
-    print('Loading pre-computed motion from file: %s' % user_settings['waveformCorrection']['path_to_motion'])
-    positions = np.load(user_settings['waveformCorrection']['path_to_motion'])
+    print('Loading pre-computed motion from file: %s' % path_to_motion)
+    positions = np.squeeze(np.asarray(np.load(path_to_motion), dtype=np.float64))
 
     # check the size of motion
-    if len(positions) != n_session:
-        raise ValueError('The size of motion from file is not correct!')
+    if positions.ndim == 1:
+        if positions.size != n_session:
+            raise ValueError(
+                f'The motion file must contain one value per session. '
+                f'Expected {n_session} values, got {positions.size}.'
+            )
+        motion.Constant = positions.reshape(-1)
+    elif positions.ndim == 2:
+        if positions.shape == (n_session, 2):
+            positions = positions.T
 
-    # update Motion
-    motion.Constant = positions
+        if positions.shape != (2, n_session):
+            raise ValueError(
+                'The motion file shape is not supported. Expected n_session, '
+                '1 x n_session, n_session x 1, 2 x n_session, or '
+                f'n_session x 2; got {positions.shape[0]} x {positions.shape[1]}.'
+            )
+
+        motion.Linear = positions[0, :]
+        motion.Constant = positions[1, :]
+    else:
+        raise ValueError(
+            'The motion file shape is not supported. Expected n_session, '
+            '1 x n_session, n_session x 1, 2 x n_session, or n_session x 2.'
+        )
 
     # compute corrected waveforms and save to Waveforms.mat
     waveforms_corrected = computeWaveformFeatures(user_settings, waveforms_all, motion)
