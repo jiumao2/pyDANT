@@ -167,7 +167,6 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
     if os.path.isfile(channel_shanks_path):
         channel_shanks = np.load(channel_shanks_path)
     isi = np.load(os.path.join(output_folder, 'isi.npy'))
-    auto_corr = np.load(os.path.join(output_folder, 'auto_corr.npy'))
     n_unit = waveforms.shape[0]
 
     waveform_similarity_matrix = np.zeros((n_unit, n_unit))
@@ -187,6 +186,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
 
     AutoCorr_similarity_matrix = np.zeros((n_unit, n_unit))
     if 'AutoCorr' in feature_names:
+        auto_corr = np.load(os.path.join(output_folder, 'auto_corr.npy'))
         AutoCorr_similarity_matrix = np.corrcoef(auto_corr)
         AutoCorr_similarity_matrix[np.isnan(AutoCorr_similarity_matrix)] = 0
         AutoCorr_similarity_matrix = np.atanh(AutoCorr_similarity_matrix)

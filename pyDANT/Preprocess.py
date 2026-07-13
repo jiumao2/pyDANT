@@ -158,7 +158,9 @@ def preprocess(user_settings):
     locations = np.zeros((n_unit, 3), dtype=np.float64)
     amp = np.zeros(n_unit, dtype=np.float64)
     channel = np.zeros(n_unit, dtype=np.int64)
-    auto_corr = np.zeros((n_unit, np.shape(out[0][5])[0]), dtype=np.float64)
+    auto_corr = None
+    if out[0][5] is not None:
+        auto_corr = np.zeros((n_unit, np.shape(out[0][5])[0]), dtype=np.float64)
     isi = np.zeros((n_unit, len(np.arange(0, user_settings['ISI']['window'], user_settings['ISI']['binwidth'])) - 1), dtype=np.float64)
     waveforms_centered = np.zeros((n_unit, waveform_all.shape[1], waveform_all.shape[2]), dtype=np.float64)
 
@@ -166,7 +168,8 @@ def preprocess(user_settings):
         locations[k, :] = out[k][0:3]
         amp[k] = out[k][3]
         channel[k] = out[k][4]
-        auto_corr[k, :] = out[k][5]
+        if auto_corr is not None:
+            auto_corr[k, :] = out[k][5]
         isi[k, :] = out[k][6]
         waveforms_centered[k, :, :] = out[k][7]
 
@@ -177,7 +180,8 @@ def preprocess(user_settings):
     np.save(os.path.join(output_folder, 'amplitude.npy'), amp)
     np.save(os.path.join(output_folder, 'peak_channels.npy'), channel)
     np.save(os.path.join(output_folder, 'unit_shanks.npy'), channel_shanks[channel])
-    np.save(os.path.join(output_folder, 'auto_corr.npy'), auto_corr)
+    if auto_corr is not None:
+        np.save(os.path.join(output_folder, 'auto_corr.npy'), auto_corr)
     np.save(os.path.join(output_folder, 'isi.npy'), isi)
     if peth is not None:
         np.save(os.path.join(output_folder, 'peth.npy'), peth)
