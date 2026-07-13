@@ -83,6 +83,9 @@ def preprocess(user_settings):
         for feature_set in user_settings['motionEstimation']['features']
         for feature in feature_set
     ]
+    isi_window = user_settings['ISI']['window']
+    isi_binwidth = user_settings['ISI']['binwidth']
+    isi_edges = np.append(np.arange(0, isi_window, isi_binwidth), isi_window)
 
     # preprocessing data
     def process_spike_info(waveform, spike_times):
@@ -120,7 +123,7 @@ def preprocess(user_settings):
 
             assert(np.shape(waveforms_centered) == np.shape(waveform))
         
-        spike_times = spike_times - np.min(spike_times)
+        spike_times = np.sort(spike_times) - np.min(spike_times)
 
         # compute the autocorrelogram feauture
         auto_corr = None
@@ -141,8 +144,8 @@ def preprocess(user_settings):
         if "ISI" in motion_features or \
                 "ISI" in user_settings['clustering']['features']:
             isi = np.diff(spike_times)
-            binwidth = user_settings['ISI']['binwidth']
-            isi_hist = np.histogram(isi, bins=np.arange(0, user_settings['ISI']['window'], binwidth))[0]
+            binwidth = isi_binwidth
+            isi_hist = np.histogram(isi, bins=isi_edges)[0]
             isi_freq = isi_hist / np.sum(isi_hist)
             isi_out = gaussian_filter1d(isi_freq, user_settings['ISI']['gaussian_sigma'] / binwidth)
         
@@ -161,7 +164,7 @@ def preprocess(user_settings):
     auto_corr = None
     if out[0][5] is not None:
         auto_corr = np.zeros((n_unit, np.shape(out[0][5])[0]), dtype=np.float64)
-    isi = np.zeros((n_unit, len(np.arange(0, user_settings['ISI']['window'], user_settings['ISI']['binwidth'])) - 1), dtype=np.float64)
+    isi = np.zeros((n_unit, len(isi_edges) - 1), dtype=np.float64)
     waveforms_centered = np.zeros((n_unit, waveform_all.shape[1], waveform_all.shape[2]), dtype=np.float64)
 
     for k in range(n_unit):
