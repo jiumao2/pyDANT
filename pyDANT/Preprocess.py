@@ -131,8 +131,9 @@ def preprocess(user_settings):
             
             auto_corr, lag = computeAutoCorr(spike_times, window, binwidth)
 
-            auto_corr[lag<0] = gaussian_filter1d(auto_corr[lag<0], user_settings['autoCorr']['gaussian_sigma'])
-            auto_corr[lag>0] = gaussian_filter1d(auto_corr[lag>0], user_settings['autoCorr']['gaussian_sigma'])
+            sigma_bins = user_settings['autoCorr']['gaussian_sigma'] / binwidth
+            auto_corr[lag<0] = gaussian_filter1d(auto_corr[lag<0], sigma_bins)
+            auto_corr[lag>0] = gaussian_filter1d(auto_corr[lag>0], sigma_bins)
             auto_corr = auto_corr / np.max(auto_corr)
 
         # compute the ISI feature
@@ -140,9 +141,10 @@ def preprocess(user_settings):
         if "ISI" in motion_features or \
                 "ISI" in user_settings['clustering']['features']:
             isi = np.diff(spike_times)
-            isi_hist = np.histogram(isi, bins=np.arange(0, user_settings['ISI']['window'], user_settings['ISI']['binwidth']))[0]
+            binwidth = user_settings['ISI']['binwidth']
+            isi_hist = np.histogram(isi, bins=np.arange(0, user_settings['ISI']['window'], binwidth))[0]
             isi_freq = isi_hist / np.sum(isi_hist)
-            isi_out = gaussian_filter1d(isi_freq, user_settings['ISI']['gaussian_sigma'])
+            isi_out = gaussian_filter1d(isi_freq, user_settings['ISI']['gaussian_sigma'] / binwidth)
         
         if user_settings['centering_waveforms']:
             return (x,y,z,amp,channel,auto_corr,isi_out,waveforms_centered)
@@ -157,7 +159,7 @@ def preprocess(user_settings):
     amp = np.zeros(n_unit, dtype=np.float64)
     channel = np.zeros(n_unit, dtype=np.int64)
     auto_corr = np.zeros((n_unit, np.shape(out[0][5])[0]), dtype=np.float64)
-    isi = np.zeros((n_unit, int(user_settings['ISI']['window']/user_settings['ISI']['binwidth'])), dtype=np.float64)
+    isi = np.zeros((n_unit, len(np.arange(0, user_settings['ISI']['window'], user_settings['ISI']['binwidth'])) - 1), dtype=np.float64)
     waveforms_centered = np.zeros((n_unit, waveform_all.shape[1], waveform_all.shape[2]), dtype=np.float64)
 
     for k in range(n_unit):
@@ -177,7 +179,8 @@ def preprocess(user_settings):
     np.save(os.path.join(output_folder, 'unit_shanks.npy'), channel_shanks[channel])
     np.save(os.path.join(output_folder, 'auto_corr.npy'), auto_corr)
     np.save(os.path.join(output_folder, 'isi.npy'), isi)
-    np.save(os.path.join(output_folder, 'peth.npy'), peth)
+    if peth is not None:
+        np.save(os.path.join(output_folder, 'peth.npy'), peth)
 
     if user_settings['centering_waveforms']:
         np.save(os.path.join(output_folder, 'waveforms_centered.npy'), waveforms_centered)

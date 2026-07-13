@@ -168,7 +168,6 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
         channel_shanks = np.load(channel_shanks_path)
     isi = np.load(os.path.join(output_folder, 'isi.npy'))
     auto_corr = np.load(os.path.join(output_folder, 'auto_corr.npy'))
-    peth = np.load(os.path.join(output_folder, 'peth.npy'))
     n_unit = waveforms.shape[0]
 
     waveform_similarity_matrix = np.zeros((n_unit, n_unit))
@@ -197,6 +196,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
 
     PETH_similarity_matrix = np.zeros((n_unit, n_unit))
     if 'PETH' in feature_names:
+        peth = np.load(os.path.join(output_folder, 'peth.npy'))
         if np.isnan(peth).any():
             valid_peth = ~np.isnan(peth)
             valid_patterns, idx_valid_patterns = np.unique(
