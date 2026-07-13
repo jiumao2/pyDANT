@@ -126,6 +126,7 @@ def computeWaveformSimilarityMatrix(user_settings, waveforms, channel_locations,
 
             temp = corrcoef2(waveform_this[idx_units,:].T, waveform_this.T)
             temp[np.isnan(temp)] = 0
+            temp = np.clip(temp, -np.tanh(6), np.tanh(6))
             temp = np.atanh(temp)
             
             waveform_similarity_matrix_this[idx_units,:] = temp
@@ -160,6 +161,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
     data_folder = user_settings["path_to_data"]
     output_folder = user_settings["output_folder"]
     max_similarity = 6; # r = 0.999987
+    max_correlation = np.tanh(max_similarity)
 
     channel_locations = np.load(os.path.join(data_folder, 'channel_locations.npy'))
     channel_shanks = None
@@ -179,6 +181,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
     if 'ISI' in feature_names:
         ISI_similarity_matrix = np.corrcoef(isi)
         ISI_similarity_matrix[np.isnan(ISI_similarity_matrix)] = 0
+        ISI_similarity_matrix = np.clip(ISI_similarity_matrix, -max_correlation, max_correlation)
         ISI_similarity_matrix = np.atanh(ISI_similarity_matrix)
         ISI_similarity_matrix = 0.5 * (ISI_similarity_matrix + ISI_similarity_matrix.T) # make it symmetric
         np.fill_diagonal(ISI_similarity_matrix, np.inf)
@@ -189,6 +192,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
         auto_corr = np.load(os.path.join(output_folder, 'auto_corr.npy'))
         AutoCorr_similarity_matrix = np.corrcoef(auto_corr)
         AutoCorr_similarity_matrix[np.isnan(AutoCorr_similarity_matrix)] = 0
+        AutoCorr_similarity_matrix = np.clip(AutoCorr_similarity_matrix, -max_correlation, max_correlation)
         AutoCorr_similarity_matrix = np.atanh(AutoCorr_similarity_matrix)
         AutoCorr_similarity_matrix = 0.5 * (AutoCorr_similarity_matrix + AutoCorr_similarity_matrix.T) # make it symmetric
         np.fill_diagonal(AutoCorr_similarity_matrix, np.inf)
@@ -222,6 +226,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
         else:
             PETH_similarity_matrix = np.corrcoef(peth)
         PETH_similarity_matrix[np.isnan(PETH_similarity_matrix)] = 0
+        PETH_similarity_matrix = np.clip(PETH_similarity_matrix, -max_correlation, max_correlation)
         PETH_similarity_matrix = np.atanh(PETH_similarity_matrix)
         PETH_similarity_matrix = 0.5 * (PETH_similarity_matrix + PETH_similarity_matrix.T) # make it symmetric
         np.fill_diagonal(PETH_similarity_matrix, np.inf)
