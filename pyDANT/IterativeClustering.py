@@ -146,7 +146,8 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
         - waveforms (ndarray): The waveforms of the units (n_units, n_channels, n_samples)
         - feature_names (list): The names of the features to be computed. The options are 'Waveform', 'ISI', 'AutoCorr', and 'PETH'.
           If path_to_data/channel_shanks.npy exists, waveform similarity restricts nearest-channel
-          neighborhoods to channels on the same shank.
+          neighborhoods to channels on the same shank. PETH bins marked as NaN are
+          ignored pairwise during PETH similarity calculation.
 
     Outputs:
         - similarity_matrix_all (ndarray): The similarity matrix of the units (n_units, n_units, n_features)
@@ -196,7 +197,30 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
 
     PETH_similarity_matrix = np.zeros((n_unit, n_unit))
     if 'PETH' in feature_names:
-        PETH_similarity_matrix = np.corrcoef(peth)
+        if np.isnan(peth).any():
+            valid_peth = ~np.isnan(peth)
+            valid_patterns, idx_valid_patterns = np.unique(
+                valid_peth, axis=0, return_inverse=True)
+            PETH_similarity_matrix = np.full((n_unit, n_unit), np.nan)
+            for idx_pattern1 in range(valid_patterns.shape[0]):
+                idx_units1 = np.where(idx_valid_patterns == idx_pattern1)[0]
+                for idx_pattern2 in range(idx_pattern1, valid_patterns.shape[0]):
+                    idx_units2 = np.where(idx_valid_patterns == idx_pattern2)[0]
+                    idx_valid = valid_patterns[idx_pattern1, :] & valid_patterns[idx_pattern2, :]
+                    if not np.any(idx_valid):
+                        raise ValueError(
+                            f'PETH features for units {idx_units1[0]} and {idx_units2[0]} have no '
+                            'overlapping valid elements.'
+                    )
+
+                    peth1 = peth[np.ix_(idx_units1, idx_valid)]
+                    peth2 = peth[np.ix_(idx_units2, idx_valid)]
+                    corr_this = corrcoef2(peth1.T, peth2.T)
+
+                    PETH_similarity_matrix[np.ix_(idx_units1, idx_units2)] = corr_this
+                    PETH_similarity_matrix[np.ix_(idx_units2, idx_units1)] = corr_this.T
+        else:
+            PETH_similarity_matrix = np.corrcoef(peth)
         PETH_similarity_matrix[np.isnan(PETH_similarity_matrix)] = 0
         PETH_similarity_matrix = np.atanh(PETH_similarity_matrix)
         PETH_similarity_matrix = 0.5 * (PETH_similarity_matrix + PETH_similarity_matrix.T) # make it symmetric
