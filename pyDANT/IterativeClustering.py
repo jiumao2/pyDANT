@@ -127,7 +127,7 @@ def computeWaveformSimilarityMatrix(user_settings, waveforms, channel_locations,
             temp = corrcoef2(waveform_this[idx_units,:].T, waveform_this.T)
             temp[np.isnan(temp)] = 0
             temp = np.clip(temp, -np.tanh(6), np.tanh(6))
-            temp = np.atanh(temp)
+            temp = np.arctanh(temp)
             
             waveform_similarity_matrix_this[idx_units,:] = temp
         
@@ -182,7 +182,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
         ISI_similarity_matrix = np.corrcoef(isi)
         ISI_similarity_matrix[np.isnan(ISI_similarity_matrix)] = 0
         ISI_similarity_matrix = np.clip(ISI_similarity_matrix, -max_correlation, max_correlation)
-        ISI_similarity_matrix = np.atanh(ISI_similarity_matrix)
+        ISI_similarity_matrix = np.arctanh(ISI_similarity_matrix)
         ISI_similarity_matrix = 0.5 * (ISI_similarity_matrix + ISI_similarity_matrix.T) # make it symmetric
         np.fill_diagonal(ISI_similarity_matrix, np.inf)
         ISI_similarity_matrix[ISI_similarity_matrix > max_similarity] = max_similarity
@@ -193,7 +193,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
         AutoCorr_similarity_matrix = np.corrcoef(auto_corr)
         AutoCorr_similarity_matrix[np.isnan(AutoCorr_similarity_matrix)] = 0
         AutoCorr_similarity_matrix = np.clip(AutoCorr_similarity_matrix, -max_correlation, max_correlation)
-        AutoCorr_similarity_matrix = np.atanh(AutoCorr_similarity_matrix)
+        AutoCorr_similarity_matrix = np.arctanh(AutoCorr_similarity_matrix)
         AutoCorr_similarity_matrix = 0.5 * (AutoCorr_similarity_matrix + AutoCorr_similarity_matrix.T) # make it symmetric
         np.fill_diagonal(AutoCorr_similarity_matrix, np.inf)
         AutoCorr_similarity_matrix[AutoCorr_similarity_matrix > max_similarity] = max_similarity
@@ -227,7 +227,7 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
             PETH_similarity_matrix = np.corrcoef(peth)
         PETH_similarity_matrix[np.isnan(PETH_similarity_matrix)] = 0
         PETH_similarity_matrix = np.clip(PETH_similarity_matrix, -max_correlation, max_correlation)
-        PETH_similarity_matrix = np.atanh(PETH_similarity_matrix)
+        PETH_similarity_matrix = np.arctanh(PETH_similarity_matrix)
         PETH_similarity_matrix = 0.5 * (PETH_similarity_matrix + PETH_similarity_matrix.T) # make it symmetric
         np.fill_diagonal(PETH_similarity_matrix, np.inf)
         PETH_similarity_matrix[PETH_similarity_matrix > max_similarity] = max_similarity
