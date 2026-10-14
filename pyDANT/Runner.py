@@ -6,7 +6,7 @@ import numpy as np
 
 from .AutoCuration import autoCuration
 from .IterativeClustering import finalClustering
-from .MotionEstimation import motionEstimation
+from .MotionEstimation import motionEstimation, getSharedMotionSettings, estimateSharedMotion
 from .Preprocess import preprocess
 
 
@@ -33,7 +33,11 @@ def runDANT(user_settings):
 
 
 def runDANTMultiShank(user_settings):
-    """Run pyDANT on multi-shank data by dispatching each shank separately.
+    """Run pyDANT with optional shared motion followed by independent shank tracking.
+
+    Successful shared motion selects motionEstimation.features_after_shared for
+    local refinement. Expected shared failures retain the original feature schedule;
+    manual motion takes precedence. Single-shank entry-point defaults are unchanged.
 
     The root output folder receives global preprocessing outputs first. Then each shank is
     processed in output_folder/Shank<ID> with a unit-subset data view while preserving full
@@ -43,6 +47,7 @@ def runDANTMultiShank(user_settings):
         - user_settings (dict): User settings. path_to_data must contain channel_shanks.npy.
 
     Outputs:
+        - output_folder/SharedMotion/: Optional common initialization and status
         - output_folder/Shank<ID>/: Per-shank pipeline outputs
         - output_folder/: Global preprocessing outputs plus merged clustering, curation,
           motion, similarity, and corrected waveform files in original unit order.
@@ -61,7 +66,8 @@ def runDANTMultiShank(user_settings):
 
     time_start = time.time()
 
-    preprocess(user_settings)
+    shared_settings, additional_features = getSharedMotionSettings(user_settings)
+    preprocess(user_settings, additional_features)
 
     unit_shanks_path = os.path.join(output_folder, 'unit_shanks.npy')
     if not os.path.isfile(unit_shanks_path):
@@ -69,6 +75,11 @@ def runDANTMultiShank(user_settings):
 
     unit_shanks = np.load(unit_shanks_path).ravel()
     shank_ids = np.unique(unit_shanks)
+    shared_motion = None
+    if shared_settings is not None:
+        motion, success, _ = estimateSharedMotion(user_settings, shared_settings, unit_shanks)
+        if success:
+            shared_motion = motion
 
     for shank_id in shank_ids:
         idx_units = np.where(unit_shanks == shank_id)[0]
@@ -135,7 +146,10 @@ def runDANTMultiShank(user_settings):
         shank_settings["output_folder"] = shank_output_folder
 
         print(f'Running DANT on shank {shank_id} ({len(idx_units)} units)...')
-        motionEstimation(shank_settings)
+        if shared_motion is not None:
+            shank_settings['motionEstimation']['features'] = user_settings['motionEstimation'].get(
+                'features_after_shared', user_settings['motionEstimation']['features'])
+        motionEstimation(shank_settings, initial_motion=shared_motion)
         finalClustering(shank_settings)
         autoCuration(shank_settings)
 

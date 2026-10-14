@@ -3,11 +3,14 @@ from scipy.optimize import minimize
 from joblib import Parallel, delayed
 import os
 import copy
+import json
+import shutil
+import warnings
 from tqdm import tqdm
 import matplotlib
 matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
 import matplotlib.pyplot as plt
-from .IterativeClustering import iterativeClustering
+from .IterativeClustering import iterativeClustering, InsufficientMatchesError
 from .ComputeWaveformFeatures import computeWaveformFeatures
 from .utils import Motion
 
@@ -20,7 +23,7 @@ def computeMotion(user_settings):
         - user_settings (dict): User settings
 
     Outputs:
-        - motion.npy: The motion of the electrode
+        - motion_linear_scale.npy, motion_linear.npy, motion_constant.npy: Fitted motion
         - SimilarityForCorretion.npz (optional): The similarity information used for motion estimation
 
     """
@@ -195,12 +198,14 @@ def computeMotion(user_settings):
 
     return motion
 
-def initializeMotion(user_settings, waveforms_all):
+def initializeMotion(user_settings, waveforms_all, initial_motion=None):
     """Initialize the motion of the electrode based on waveform shifts.
 
     Arguments:
         - user_settings (dict): User settings
         - waveforms_all (np.ndarray): All waveforms
+        - initial_motion (Motion, optional): Shared initialization. The effective
+          first feature set must include Waveform.
 
     Returns:
         - Motion: Initialized motion object
@@ -210,6 +215,13 @@ def initializeMotion(user_settings, waveforms_all):
     sessions = np.load(os.path.join(data_folder , 'session_index.npy'))
     n_session = np.max(sessions)
     motion = Motion(num_sessions=n_session)
+
+    if initial_motion is not None:
+        first = user_settings['motionEstimation']['features'][0]
+        if not any(name.lower() == 'waveform' for name in first):
+            raise ValueError('The first motionEstimation.features_after_shared entry (or features when omitted) must include Waveform.')
+        motion = copy.deepcopy(initial_motion)
+        return computeWaveformFeatures(user_settings, waveforms_all, motion), motion
 
     path_to_motion = user_settings['waveformCorrection'].get('path_to_motion', '')
     if path_to_motion == '':
@@ -302,16 +314,23 @@ def getMotionFeatureSets(user_settings):
 
     return similarity_names_all, n_iter_motion_estimation
 
-def motionEstimation(user_settings):
+def motionEstimation(user_settings, initial_motion=None, unit_shanks=None):
     """Estimate the motion of the electrode and save the results.
-    Compute the features of each unit and do clustering the find the matching units.
-    Motion estimation is then performed to minimize the distance between the matching units.
+    Compute matches and estimate complete motion from original unit depths.
+    Waveform correction always starts from the original waveforms.
 
     Arguments:
         - user_settings (dict): User settings
+        - initial_motion (Motion, optional): Shared initial state, also used for rollback
+        - unit_shanks (ndarray, optional): Within-shank HDBSCAN with pooled LDA
+
+    Returns:
+        - Motion: Retained motion state
+        - result_iter (list): Retained iterations
 
     Outputs:
-        - motion.npy: The motion of the electrode
+        - motion_linear_scale.npy, motion_linear.npy, motion_constant.npy: Fitted motion
+        - MotionIterations.npz: Local iteration history and initialization source
         - SimilarityForCorretion.npz (optional): The similarity information used for motion estimation
 
     """
@@ -323,8 +342,9 @@ def motionEstimation(user_settings):
     else:
         waveform_all = np.load(os.path.join(data_folder, 'waveform_all.npy'))
 
+    initialized_from_shared = initial_motion is not None
     # Initialize Motion
-    waveforms_corrected, Motion = initializeMotion(user_settings, waveform_all)
+    waveforms_corrected, Motion = initializeMotion(user_settings, waveform_all, initial_motion)
     initial_motion = copy.deepcopy(Motion)
 
     similarity_names_all, n_iter_motion_estimation = getMotionFeatureSets(user_settings)
@@ -333,7 +353,7 @@ def motionEstimation(user_settings):
     
     for i in range(n_iter_motion_estimation):
         idx_feature_set = min(i, len(similarity_names_all) - 1)
-        iterativeClustering(user_settings, similarity_names_all[idx_feature_set], waveforms_corrected, Motion)
+        iterativeClustering(user_settings, similarity_names_all[idx_feature_set], waveforms_corrected, Motion, unit_shanks)
 
         # Count unique matched unit pairs
         cluster_matrix = np.load(os.path.join(output_folder, 'ClusterMatrix.npy'))
@@ -363,9 +383,18 @@ def motionEstimation(user_settings):
                 break
 
 
+        num_reliable = None
+        if unit_shanks is not None:
+            num_reliable = _checkSharedMotionPairs(user_settings)
         Motion = computeMotion(user_settings)
+        if unit_shanks is not None and not np.isfinite(np.r_[Motion.Linear, Motion.Constant]).all():
+            raise InsufficientMatchesError('The shared motion fit is not finite.')
         result_iter.append({
             'num_matches': num_matches,
+            'num_reliable_pairs': num_reliable,
+            'features': similarity_names_all[idx_feature_set],
+            'weights': np.load(os.path.join(output_folder, 'SimilarityWeights.npy')),
+            'threshold': np.load(os.path.join(output_folder, 'SimilarityThreshold.npy')),
             'motion': copy.deepcopy(Motion),
         })
         waveforms_corrected = computeWaveformFeatures(user_settings, waveform_all, Motion)
@@ -373,3 +402,104 @@ def motionEstimation(user_settings):
     # Save the corrected waveforms
     output_folder = user_settings['output_folder']
     np.save(os.path.join(output_folder, 'waveforms_corrected.npy'), waveforms_corrected)
+    if initialized_from_shared or unit_shanks is not None:
+        Motion.save(output_folder)
+    if unit_shanks is None:
+        initialization = 'shared' if initialized_from_shared else ('manual' if user_settings['waveformCorrection'].get('path_to_motion', '') else 'zero')
+        np.savez(os.path.join(output_folder, 'MotionIterations.npz'),
+                 result_iter=np.asarray(result_iter, dtype=object), initialization=initialization,
+                 initial_linear=initial_motion.Linear, initial_constant=initial_motion.Constant,
+                 feature_sets=np.asarray(similarity_names_all, dtype=object))
+    return Motion, result_iter
+
+
+def getSharedMotionSettings(user_settings):
+    """Resolve shared settings and additional preprocessing features.
+
+    Disabled or absent shared settings, manual motion, and fewer than two
+    occupied shanks return (None, []). The caller's settings are unchanged.
+    """
+    shared = user_settings.get('sharedMotion', {})
+    if not shared.get('enabled', False):
+        return None, []
+    if user_settings['waveformCorrection'].get('path_to_motion', ''):
+        warnings.warn('path_to_motion is set; skipping shared motion estimation.', RuntimeWarning)
+        return None, []
+    data_folder = user_settings['path_to_data']
+    waveforms = np.load(os.path.join(data_folder, 'waveform_all.npy'), mmap_mode='r')
+    channel_shanks = np.load(os.path.join(data_folder, 'channel_shanks.npy')).ravel()
+    peaks = np.argmax(np.ptp(waveforms, axis=2), axis=1)
+    if np.unique(channel_shanks[peaks]).size < 2:
+        return None, []
+    settings = copy.deepcopy(user_settings)
+    settings['output_folder'] = os.path.join(user_settings['output_folder'], 'SharedMotion')
+    for name in ('features', 'repeat_last_feature_set', 'stop_early'):
+        if name in shared:
+            settings['motionEstimation'][name] = shared[name]
+    if 'linear_correction' in shared:
+        settings['waveformCorrection']['linear_correction'] = shared['linear_correction']
+    schedules = settings['motionEstimation']['features'] + user_settings['motionEstimation'].get('features_after_shared', [])
+    additional_features = list(dict.fromkeys(name for features in schedules for name in features))
+    return settings, additional_features
+
+
+def _checkSharedMotionPairs(user_settings):
+    """Require reliable pairs that identify the shared rigid or linear model."""
+    folder = user_settings['output_folder']
+    sessions = np.load(os.path.join(user_settings['path_to_data'], 'session_index.npy')).ravel()
+    locations = np.load(os.path.join(folder, 'locations.npy'))
+    pairs = np.load(os.path.join(folder, 'SimilarityPairs.npy'))
+    similarity = np.load(os.path.join(folder, 'SimilarityMatrix.npy'))
+    clusters = np.load(os.path.join(folder, 'ClusterMatrix.npy'))
+    threshold = np.load(os.path.join(folder, 'SimilarityThreshold.npy'))
+    good = (similarity[pairs[:, 0], pairs[:, 1]] > threshold) & clusters[pairs[:, 0], pairs[:, 1]]
+    good &= sessions[pairs[:, 0]] != sessions[pairs[:, 1]]
+    pairs = pairs[good]
+    if len(pairs) == 0:
+        raise InsufficientMatchesError('No reliable cross-session pairs are available.')
+    incidence = np.zeros((len(pairs), int(sessions.max())))
+    rows = np.arange(len(pairs))
+    incidence[rows, sessions[pairs[:, 0]] - 1] = -1
+    incidence[rows, sessions[pairs[:, 1]] - 1] = 1
+    design = incidence[:, 1:]
+    if user_settings['waveformCorrection']['linear_correction']:
+        depth = locations[pairs, 1].mean(axis=1)
+        design = np.column_stack((design * (0.001 * depth[:, None]), design))
+    if np.linalg.matrix_rank(design) < design.shape[1]:
+        raise InsufficientMatchesError('Reliable pairs do not determine the shared motion model for all sessions.')
+    return len(pairs)
+
+
+def estimateSharedMotion(user_settings, shared_settings, unit_shanks):
+    """Estimate common motion with pooled LDA and within-shank HDBSCAN.
+
+    Reads globally preprocessed features from user_settings['output_folder'].
+    Returns (motion, success, result_iter). Expected insufficient matching
+    constraints warn and return zero motion; other exceptions propagate.
+    SharedMotion.npz records the final state and resolved configuration under
+    output_folder/SharedMotion. Original unit and session indices are preserved.
+    """
+    folder = shared_settings['output_folder']
+    os.makedirs(os.path.join(folder, 'Figures'), exist_ok=True)
+    for name in ('locations.npy', 'isi.npy', 'auto_corr.npy', 'peth.npy', 'waveforms_centered.npy'):
+        source = os.path.join(user_settings['output_folder'], name)
+        if os.path.isfile(source):
+            shutil.copy2(source, os.path.join(folder, name))
+    sessions = np.load(os.path.join(user_settings['path_to_data'], 'session_index.npy'))
+    reason = 'No fitted shared motion was retained.'
+    try:
+        motion, result_iter = motionEstimation(shared_settings, unit_shanks=unit_shanks)
+    except InsufficientMatchesError as exception:
+        reason = str(exception)
+        motion = Motion(num_sessions=int(sessions.max()))
+        result_iter = []
+    success = bool(result_iter)
+    if success:
+        reason = 'A fitted shared motion state was retained.'
+    else:
+        warnings.warn(reason + ' Continuing with independent motion estimation.', RuntimeWarning)
+    motion.save(folder)
+    np.savez(os.path.join(folder, 'SharedMotion.npz'), success=success, reason=reason,
+             Linear=motion.Linear, Constant=motion.Constant, LinearScale=motion.LinearScale,
+             settings=json.dumps(shared_settings), result_iter=np.asarray(result_iter, dtype=object))
+    return motion, success, result_iter

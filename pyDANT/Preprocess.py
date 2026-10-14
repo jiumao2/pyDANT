@@ -9,12 +9,13 @@ import matplotlib
 matplotlib.use('Agg')  # Use a non-interactive backend for matplotlib
 import matplotlib.pyplot as plt
 
-def preprocess(user_settings):
+def preprocess(user_settings, additional_features=None):
     """Preprocess the data and save the features.
     Compute the ISI, autocorrelogram, and location of each unit and save the features to the output folder.
 
     Arguments:
         - user_settings (dict): User settings
+        - additional_features (list, optional): Extra features needed by shared motion.
 
     Inputs:
         - waveform_all.npy: The waveform of each unit
@@ -83,6 +84,8 @@ def preprocess(user_settings):
         for feature_set in user_settings['motionEstimation']['features']
         for feature in feature_set
     ]
+    if additional_features is not None:
+        motion_features.extend(additional_features)
     isi_window = user_settings['ISI']['window']
     isi_binwidth = user_settings['ISI']['binwidth']
     isi_edges = np.append(np.arange(0, isi_window, isi_binwidth), isi_window)

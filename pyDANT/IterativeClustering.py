@@ -139,7 +139,7 @@ def computeWaveformSimilarityMatrix(user_settings, waveforms, channel_locations,
 
     return waveform_similarity_matrix
 
-def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
+def computeAllSimilarityMatrix(user_settings, waveforms, feature_names, unit_shanks=None):
     """Compute the similarity matrix of the units based on the similarity metrics.
 
     Arguments:
@@ -149,6 +149,9 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
           If path_to_data/channel_shanks.npy exists, waveform similarity restricts nearest-channel
           neighborhoods to channels on the same shank. PETH bins marked as NaN are
           ignored pairwise during PETH similarity calculation.
+        - unit_shanks (ndarray, optional): In shared mode, missing PETH overlap is
+          an error only within a shank. Uncomputable cross-shank entries are zero
+          placeholders; all other similarities are still computed globally.
 
     Outputs:
         - similarity_matrix_all (ndarray): The similarity matrix of the units (n_units, n_units, n_features)
@@ -160,6 +163,8 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
     """
     data_folder = user_settings["path_to_data"]
     output_folder = user_settings["output_folder"]
+    if unit_shanks is not None:
+        unit_shanks = np.asarray(unit_shanks).ravel()
     max_similarity = 6; # r = 0.999987
     max_correlation = np.tanh(max_similarity)
 
@@ -212,8 +217,17 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
                     idx_units2 = np.where(idx_valid_patterns == idx_pattern2)[0]
                     idx_valid = valid_patterns[idx_pattern1, :] & valid_patterns[idx_pattern2, :]
                     if not np.any(idx_valid):
+                        unit1, unit2 = idx_units1[0], idx_units2[0]
+                        if unit_shanks is not None:
+                            _, idx1, idx2 = np.intersect1d(
+                                unit_shanks[idx_units1], unit_shanks[idx_units2], return_indices=True)
+                            if len(idx1) == 0:
+                                PETH_similarity_matrix[np.ix_(idx_units1, idx_units2)] = 0
+                                PETH_similarity_matrix[np.ix_(idx_units2, idx_units1)] = 0
+                                continue
+                            unit1, unit2 = idx_units1[idx1[0]], idx_units2[idx2[0]]
                         raise ValueError(
-                            f'PETH features for units {idx_units1[0]} and {idx_units2[0]} have no '
+                            f'PETH features for units {unit1} and {unit2} have no '
                             'overlapping valid elements.'
                     )
 
@@ -242,7 +256,11 @@ def computeAllSimilarityMatrix(user_settings, waveforms, feature_names):
 
     return (similarity_matrix_all, feature_names_all)
 
-def iterativeClustering(user_settings, similarity_names, waveforms, motion=None):
+class InsufficientMatchesError(RuntimeError):
+    """Expected lack of within-shank matching constraints for shared motion."""
+
+
+def iterativeClustering(user_settings, similarity_names, waveforms, motion=None, unit_shanks=None):
     """Iterative clustering of the units based on the similarity metrics using HDBSCAN and LDA.
     The similarity metrics are computed firstly, and then HDBSCAN and LDA are performed alternatively to find the best clustering results.
     The clustering results are saved to the output folder.
@@ -250,6 +268,12 @@ def iterativeClustering(user_settings, similarity_names, waveforms, motion=None)
     Arguments:
         - user_settings (dict): User settings
         - similarity_names (list): The names of the similarity metrics to be computed. The options are 'Waveform', 'ISI', 'AutoCorr', and 'PETH'.
+
+        - motion (Motion, optional): Current depth correction
+        - unit_shanks (ndarray, optional): Cluster within shanks, pool LDA weights
+          and the similarity threshold. Insufficient within-class degrees of freedom
+          or zero effective rank cause expected shared-estimation failure. This mode
+          has no global linkage ordering.
 
     Outputs:
         - SimilarityMatrix.npy: The similarity matrix of the units
@@ -275,9 +299,14 @@ def iterativeClustering(user_settings, similarity_names, waveforms, motion=None)
     # Compute the similarities
     max_distance = user_settings['clustering']['max_distance']
     idx_unit_pairs, _ = getNearbyPairs(max_distance, sessions, locations, motion)
+    if unit_shanks is not None:
+        unit_shanks = np.asarray(unit_shanks).ravel()
+        idx_unit_pairs = idx_unit_pairs[unit_shanks[idx_unit_pairs[:, 0]] == unit_shanks[idx_unit_pairs[:, 1]]]
+        if len(idx_unit_pairs) == 0:
+            raise InsufficientMatchesError('No within-shank nearby unit pairs are available.')
     n_pairs = idx_unit_pairs.shape[0]
 
-    similarity_matrix_all, names_all = computeAllSimilarityMatrix(user_settings, waveforms, similarity_names)
+    similarity_matrix_all, names_all = computeAllSimilarityMatrix(user_settings, waveforms, similarity_names, unit_shanks)
     print("Computing similarity done!")
 
     n_session = np.max(sessions)
@@ -310,7 +339,20 @@ def iterativeClustering(user_settings, similarity_names, waveforms, motion=None)
             metric='precomputed'
         )
         
-        idx_cluster_hdbscan = clusterer.fit_predict(distance_matrix)
+        if unit_shanks is None:
+            idx_cluster_hdbscan = clusterer.fit_predict(distance_matrix)
+        else:
+            idx_cluster_hdbscan = np.full(len(unit_shanks), -1, dtype=np.int64)
+            offset = 0
+            for shank in np.unique(unit_shanks):
+                units = np.flatnonzero(unit_shanks == shank)
+                if len(units) < 2:
+                    continue
+                labels = clusterer.fit_predict(distance_matrix[np.ix_(units, units)])
+                matched = labels >= 0
+                idx_cluster_hdbscan[units[matched]] = labels[matched] + offset
+                if np.any(matched):
+                    offset += int(labels[matched].max()) + 1
         idx_cluster_hdbscan[idx_cluster_hdbscan >= 0] += 1  # MATLAB starts from 1
         
         n_cluster = np.max(idx_cluster_hdbscan)
@@ -328,15 +370,34 @@ def iterativeClustering(user_settings, similarity_names, waveforms, motion=None)
         is_matched = np.array([hdbscan_matrix[idx_unit_pairs[k,0], idx_unit_pairs[k,1]] 
                                 for k in range(n_pairs)])
         
-        if iter < user_settings['clustering']['n_iter']:
+        if unit_shanks is not None and np.unique(is_matched).size < 2:
+            raise InsufficientMatchesError('Shared LDA requires matched and unmatched within-shank pairs.')
+
+        if iter < user_settings['clustering']['n_iter'] or (unit_shanks is not None and iter == 1):
             prev_weights = weights # store weights prior to LDA update
 
             # LDA and update weights
             mdl = LinearDiscriminantAnalysis()
+            if unit_shanks is not None:
+                classes = np.unique(is_matched)
+                if n_pairs <= len(classes):
+                    raise InsufficientMatchesError('Shared LDA has insufficient within-class degrees of freedom.')
+                centered = np.concatenate([
+                    similarity_all[is_matched == label] - similarity_all[is_matched == label].mean(axis=0)
+                    for label in classes])
+                std = centered.std(axis=0)
+                std[std == 0] = 1.0
+                # Use the SVD solver's scaling and tolerance, without requiring full rank.
+                scaled = np.sqrt(1.0 / (n_pairs - len(classes))) * (centered / std)
+                singular_values = np.linalg.svd(scaled, compute_uv=False)
+                if not np.any(singular_values > mdl.tol):
+                    raise InsufficientMatchesError('Shared LDA has zero effective within-class rank.')
             mdl.fit(similarity_all, is_matched)
             
             temp = mdl.coef_[0]
             weights = temp / np.sum(temp)
+            if unit_shanks is not None and not np.isfinite(weights).all():
+                raise InsufficientMatchesError('Shared feature weights could not be determined.')
             print('Weights:')
             print('   '.join(similarity_names))
             print(weights)
@@ -350,15 +411,22 @@ def iterativeClustering(user_settings, similarity_names, waveforms, motion=None)
                 print(f'Convergence reached at iteration {iter} (weight change < tol). Stopping early.')
                 break
 
-    Z = clusterer.single_linkage_tree_.to_numpy()
     np.save(os.path.join(output_folder, 'DistanceMatrix.npy'), distance_matrix)
-    Z_ordered = optimal_leaf_ordering(Z, squareform(distance_matrix))
-    leafOrder = leaves_list(Z_ordered)
+    if unit_shanks is None:
+        Z = clusterer.single_linkage_tree_.to_numpy()
+        Z_ordered = optimal_leaf_ordering(Z, squareform(distance_matrix))
+        leafOrder = leaves_list(Z_ordered)
+    else:
+        leafOrder = np.array([], dtype=np.int64)  # No cross-shank linkage tree.
 
     # set the threshold based on LDA results
     thres = mdl.intercept_[0] / (-mdl.coef_[0][0]) * weights[0]
 
+    if unit_shanks is not None and not np.isfinite(thres):
+        raise InsufficientMatchesError('Shared similarity threshold could not be determined.')
     good_matches_matrix = similarity_matrix > thres
+    if unit_shanks is not None:
+        good_matches_matrix[unit_shanks[:, None] != unit_shanks[None, :]] = False
     np.fill_diagonal(good_matches_matrix, True)
 
     # plot the distribution of similarity
