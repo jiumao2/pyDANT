@@ -20,13 +20,16 @@ def computeMotion(user_settings):
     Motion estimation is then performed to minimize the distance between the matching units.
 
     Arguments:
-        - user_settings (dict): User settings
+        - user_settings (dict): User settings. ``motionEstimation.compute_ci``
+          defaults to True when omitted. Set it to False to skip bootstrap
+          confidence intervals and their shading in the motion plot.
 
     Outputs:
         - motion_linear_scale.npy, motion_linear.npy, motion_constant.npy: Fitted motion
         - SimilarityForCorretion.npz (optional): The similarity information used for motion estimation
 
     """
+    compute_ci = user_settings.get('motionEstimation', {}).get('compute_ci', True)
     data_folder = user_settings["path_to_data"]
     output_folder = user_settings["output_folder"]
 
@@ -77,8 +80,7 @@ def computeMotion(user_settings):
         dy[k] = locations[unit2,1] - locations[unit1,1]
         depth[k] = np.mean([locations[unit2,1], locations[unit1,1]])
 
-    # Compute the motion and 95CI
-    n_boot = 100
+    # Compute the motion
     linear_scale = 0.001
 
     motion = Motion(num_sessions=n_session)
@@ -115,76 +117,81 @@ def computeMotion(user_settings):
         min_motion = None
         max_motion = None
     
-    # Bootstrap
-    def bootstrap(dy, session_pairs, n_session):
-        idx_rand = np.random.randint(0, len(dy), len(dy))
-        dy_this = dy[idx_rand]
-        session_pairs_this = session_pairs[idx_rand, :]
-        depth_this = depth[idx_rand]
+    if compute_ci:
+        n_boot = 100
+        # Bootstrap
+        def bootstrap(dy, session_pairs, n_session):
+            idx_rand = np.random.randint(0, len(dy), len(dy))
+            dy_this = dy[idx_rand]
+            session_pairs_this = session_pairs[idx_rand, :]
+            depth_this = depth[idx_rand]
 
-        if user_settings['waveformCorrection']['linear_correction']:
-            def loss_func(params):
-                p_linear = np.insert(params[:n_session-1], 0, 0)  # Insert zero for the first session
-                p_constant = np.insert(params[n_session-1:], 0, 0)
+            if user_settings['waveformCorrection']['linear_correction']:
+                def loss_func(params):
+                    p_linear = np.insert(params[:n_session-1], 0, 0)  # Insert zero for the first session
+                    p_constant = np.insert(params[n_session-1:], 0, 0)
 
-                p = linear_scale*p_linear[session_pairs_this-1]*depth_this[:, np.newaxis] + p_constant[session_pairs_this-1]
+                    p = linear_scale*p_linear[session_pairs_this-1]*depth_this[:, np.newaxis] + p_constant[session_pairs_this-1]
 
-                return np.sum((np.squeeze(p[:,1] - p[:,0]) - dy_this)**2)
-            
-            res = minimize(loss_func, np.random.rand(n_session*2-2), 
-                        options={'maxiter': 1e8})
-            p_linear = np.insert(res.x[:n_session-1], 0, 0)
-            p_constant = np.insert(res.x[n_session-1:], 0, 0)
+                    return np.sum((np.squeeze(p[:,1] - p[:,0]) - dy_this)**2)
 
-            mean_motion_this = linear_scale*p_linear*np.mean(depth_this) + p_constant
-            p_constant = p_constant - np.mean(mean_motion_this)
-            mean_motion_boot = linear_scale*p_linear*np.mean(depth_this) + p_constant
-            min_motion_boot = linear_scale*p_linear*np.min(depth_this) + p_constant
-            max_motion_boot = linear_scale*p_linear*np.max(depth_this) + p_constant
+                res = minimize(loss_func, np.random.rand(n_session*2-2),
+                            options={'maxiter': 1e8})
+                p_linear = np.insert(res.x[:n_session-1], 0, 0)
+                p_constant = np.insert(res.x[n_session-1:], 0, 0)
 
-        else:
-            def loss_func(params):
-                p = params[session_pairs_this-1]
+                mean_motion_this = linear_scale*p_linear*np.mean(depth_this) + p_constant
+                p_constant = p_constant - np.mean(mean_motion_this)
+                mean_motion_boot = linear_scale*p_linear*np.mean(depth_this) + p_constant
+                min_motion_boot = linear_scale*p_linear*np.min(depth_this) + p_constant
+                max_motion_boot = linear_scale*p_linear*np.max(depth_this) + p_constant
 
-                return np.sum((np.squeeze(p[:,1] - p[:,0]) - dy_this)**2)
-          
-            res = minimize(loss_func, np.random.rand(n_session), 
-                        options={'maxiter': 1e8})
-            mean_motion_boot = res.x - np.mean(res.x)
-            min_motion_boot = None
-            max_motion_boot = None
+            else:
+                def loss_func(params):
+                    p = params[session_pairs_this-1]
 
-        return mean_motion_boot, min_motion_boot, max_motion_boot
+                    return np.sum((np.squeeze(p[:,1] - p[:,0]) - dy_this)**2)
 
-    p_boot = Parallel(n_jobs=user_settings["n_jobs"])(delayed(bootstrap)(dy, session_pairs, n_session) 
-        for _ in tqdm(range(n_boot), desc='Computing 95CI'))
-    
-    mean_motion_ci95 = np.zeros((2, n_session))
-    min_motion_ci95 = np.zeros((2, n_session))
-    max_motion_ci95 = np.zeros((2, n_session))
-    for j in range(n_session):
-        mean_motion_ci95[0,j] = np.percentile([p_boot[i][0][j] for i in range(n_boot)], 2.5)
-        mean_motion_ci95[1,j] = np.percentile([p_boot[i][0][j] for i in range(n_boot)], 97.5)
+                res = minimize(loss_func, np.random.rand(n_session),
+                            options={'maxiter': 1e8})
+                mean_motion_boot = res.x - np.mean(res.x)
+                min_motion_boot = None
+                max_motion_boot = None
 
-        if user_settings['waveformCorrection']['linear_correction']:
-            min_motion_ci95[0,j] = np.percentile([p_boot[i][1][j] for i in range(n_boot)], 2.5)
-            min_motion_ci95[1,j] = np.percentile([p_boot[i][1][j] for i in range(n_boot)], 97.5)
-            max_motion_ci95[0,j] = np.percentile([p_boot[i][2][j] for i in range(n_boot)], 2.5)
-            max_motion_ci95[1,j] = np.percentile([p_boot[i][2][j] for i in range(n_boot)], 97.5)
+            return mean_motion_boot, min_motion_boot, max_motion_boot
+
+        p_boot = Parallel(n_jobs=user_settings["n_jobs"])(delayed(bootstrap)(dy, session_pairs, n_session)
+            for _ in tqdm(range(n_boot), desc='Computing 95CI'))
+
+        mean_motion_ci95 = np.zeros((2, n_session))
+        min_motion_ci95 = np.zeros((2, n_session))
+        max_motion_ci95 = np.zeros((2, n_session))
+        for j in range(n_session):
+            mean_motion_ci95[0,j] = np.percentile([p_boot[i][0][j] for i in range(n_boot)], 2.5)
+            mean_motion_ci95[1,j] = np.percentile([p_boot[i][0][j] for i in range(n_boot)], 97.5)
+
+            if user_settings['waveformCorrection']['linear_correction']:
+                min_motion_ci95[0,j] = np.percentile([p_boot[i][1][j] for i in range(n_boot)], 2.5)
+                min_motion_ci95[1,j] = np.percentile([p_boot[i][1][j] for i in range(n_boot)], 97.5)
+                max_motion_ci95[0,j] = np.percentile([p_boot[i][2][j] for i in range(n_boot)], 2.5)
+                max_motion_ci95[1,j] = np.percentile([p_boot[i][2][j] for i in range(n_boot)], 97.5)
 
     # plot the motion
     plt.figure(figsize=(5, 5))
 
     plt.plot(np.arange(n_session)+1, mean_motion, 'k-', label='Mean Motion')
-    plt.fill_between(np.arange(n_session)+1, mean_motion_ci95[0,:], mean_motion_ci95[1,:], color='gray', alpha=0.5)
+    if compute_ci:
+        plt.fill_between(np.arange(n_session)+1, mean_motion_ci95[0,:], mean_motion_ci95[1,:], color='gray', alpha=0.5)
 
     if min_motion is not None:
         plt.plot(np.arange(n_session)+1, min_motion, 'b-', label='Min Motion')
-        plt.fill_between(np.arange(n_session)+1, min_motion_ci95[0,:], min_motion_ci95[1,:], color='blue', alpha=0.5)
+        if compute_ci:
+            plt.fill_between(np.arange(n_session)+1, min_motion_ci95[0,:], min_motion_ci95[1,:], color='blue', alpha=0.5)
 
     if max_motion is not None:
         plt.plot(np.arange(n_session)+1, max_motion, 'r-', label='Max Motion')
-        plt.fill_between(np.arange(n_session)+1, max_motion_ci95[0,:], max_motion_ci95[1,:], color='red', alpha=0.5)
+        if compute_ci:
+            plt.fill_between(np.arange(n_session)+1, max_motion_ci95[0,:], max_motion_ci95[1,:], color='red', alpha=0.5)
 
     plt.xlabel('Sessions')
     plt.ylabel('Motion (μm)')

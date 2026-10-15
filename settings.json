@@ -49,6 +49,7 @@
 
     // parameters for motion estimation
     "motionEstimation":{
+        "compute_ci": true, // whether to compute and plot 95% motion confidence intervals; omitted defaults to true (also applies to shared motion)
         "features": [
             ["AutoCorr", "PETH"],
             ["Waveform", "AutoCorr", "PETH"]
