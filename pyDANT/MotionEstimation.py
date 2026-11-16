@@ -325,6 +325,7 @@ def motionEstimation(user_settings, initial_motion=None, unit_shanks=None):
     """Estimate the motion of the electrode and save the results.
     Compute matches and estimate complete motion from original unit depths.
     Waveform correction always starts from the original waveforms.
+    Saved motion and corrected waveforms use the retained state after rollback.
 
     Arguments:
         - user_settings (dict): User settings
@@ -409,8 +410,7 @@ def motionEstimation(user_settings, initial_motion=None, unit_shanks=None):
     # Save the corrected waveforms
     output_folder = user_settings['output_folder']
     np.save(os.path.join(output_folder, 'waveforms_corrected.npy'), waveforms_corrected)
-    if initialized_from_shared or unit_shanks is not None:
-        Motion.save(output_folder)
+    Motion.save(output_folder)
     if unit_shanks is None:
         initialization = 'shared' if initialized_from_shared else ('manual' if user_settings['waveformCorrection'].get('path_to_motion', '') else 'zero')
         np.savez(os.path.join(output_folder, 'MotionIterations.npz'),
